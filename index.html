@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gen1x's site</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <header>
+      <canvas id="stars-canvas"></canvas>
+      <canvas id="clouds-canvas"></canvas>
+      <div class="settings-container">
+        <div>
+            <input type="checkbox" id="dynamic-header-checkbox" checked>
+            <label for="dynamic-header-checkbox">Dynamic Header</label>
+        </div>
+        <div>
+            <input type="checkbox" id="clouds-checkbox" checked>
+            <label for="clouds-checkbox">Clouds</label>
+        </div>
+      </div>
+      <div id="dynamic-header-text">
+        This header will change depending on my time of day and the weather in my area.
+      </div>
+      <div class="header-content">
+        <div id="weather-display">
+          Loading weather...
+        </div>
+        <h1>
+          <span id="title-text" class="unselectable">Gen1x</span>
+        </h1>
+        <p class="tagline">
+          <span id="tagline-text" class="unselectable">I make stuff :3</span>
+        </p>
+      </div>
+    </header>
+    <main class="profile-container">
+      <div class="profile-card">
+        <div class="discord-section">
+          <div id="discord-status"> Loading Discord status... </div>
+        </div>
+        <div class="intro-section">
+          <div class="intro-title-container">
+            <img src="argentina.png" alt="Argentina Flag" class="flag-icon">
+            <h2>Hey! I'm Gen1x.</h2>
+          </div>
+          <p>I'm a <span id="age"></span> year old bisexual guy from Argentina who really likes programming. I have autism and ADHD, and coding is one of the things I'm most passionate about. </p>
+          <p>I love making extensions for TurboWarp and PenguinMod because I want to create useful tools that people will rely on; the kind of extensions you find yourself adding to every single project.</p>
+          <p>The reason this has so much shit, is because uhhh I was bored and I like how it looks lmao</p>
+          <button id="guestbook-btn">My guestbook</button>		  
+		</div>
+        <div class="what-i-do-section">
+          <h2>What I Do</h2>
+          <div class="projects-grid">
+            <div class="project-card">
+              <h3>TurboWarp & PenguinMod Extensions</h3>
+              <p>I make extensions for both TurboWarp and PenguinMod, creating custom blocks and features to enhance the editors.</p>
+            </div>
+            <div class="project-card">
+              <h3>Programming</h3>
+              <p>I'm always tinkering with something new. Whether it's a small script to automate a task or a full-fledged application, I love the challenge of building things with code.</p>
+            </div>
+            <div class="project-card">
+              <h3>Chess</h3>
+              <p>I'm a big fan of chess. I'm not a grandmaster or anything, but I enjoy a good game and I'm always trying to learn new openings and tactics.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="guestbook-container" class="hidden">
+        <button id="back-btn">Back</button>
+        <iframe id="guestbook-iframe" src="https://gen1x.atabook.org/"></iframe>
+      </div>
+    </main>
+    <table class="webring">
+        <tr>
+            <td>
+                <a
+                    href="https://steve0greatness.github.io/webring/sites/gen1x/prev.xhtml"
+                >Prev</a>
+            </td>
+            <td>
+                <a
+                    href="https://steve0greatness.github.io/webring"
+                >
+                    <img
+                        src="https://steve0greatness.github.io/webring/logo-500.webp"
+                        width="100"
+                        height="42"
+                    />
+                </a>
+            </td>
+            <td>
+                <a
+                    href="https://steve0greatness.github.io/webring/sites/gen1x/next.xhtml"
+                >Next</a>
+            </td>
+        </tr>
+    </table>
+    <footer id="footer">
+      <p>Made with ❤️ in Argentina.</p>
+    </footer>
+    <script src="script.js"></script>
+    <script src="stars.js"></script>
+    <script src="clouds.js"></script>
+  </body>
+</html>

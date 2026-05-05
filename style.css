@@ -1,0 +1,527 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Roboto+Mono:wght@600&family=Merriweather:wght@700&display=swap');
+
+:root {
+    --primary-color: #bb86fc;
+    --primary-hover: #9a67e0;
+    --background-color: #1a1a1a;
+    --card-background: #2c2c2c;
+    --text-color: #e0e0e0;
+    --subtle-text-color: #a0a0a0;
+    --border-color: #444444;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --header-color: #0d1117;
+    --sans-font: 'Inter', sans-serif;
+    --mono-font: 'Roboto Mono', monospace;
+    --serif-font: 'Merriweather', serif;
+}
+
+body {
+    font-family: var(--sans-font);
+    background-color: var(--background-color);
+    background-image: linear-gradient(to top, #111111, var(--background-color)), url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/></filter><rect width="100" height="100" filter="url(%23n)" opacity="0.05"/></svg>');
+    margin: 0;
+    color: var(--text-color);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+header {
+    background-color: var(--header-color);
+    padding: 2rem 2.5rem;
+    color: white;
+    border-bottom: 1px solid var(--border-color);
+    position: relative;
+    transition: background-color 1s ease-in-out; 
+}
+
+.unselectable {
+  user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+}
+
+#stars-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    transition: opacity 1s ease-in-out; 
+}
+
+#clouds-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    transition: opacity 1s ease-in-out;
+}
+
+.header-content {
+    max-width: 900px;
+    margin: 0 auto;
+    text-align: left;
+    position: relative; 
+    z-index: 2;
+}
+
+.text-bg {
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 0.25rem 0.25rem;
+    border-radius: 4px;
+    transition: background-color 1s ease-in-out;
+}
+
+#dynamic-header-text {
+    position: absolute;
+    bottom: 0.2rem; /* Aligned with header padding-top */
+    left: 0.2rem; /* Aligned with header padding-left */
+    font-size: 0.8em;
+    color: var(--subtle-text-color); /* Default color, will be overridden by JS */
+    transition: color 1s ease-in-out; /* Smooth transition for color */
+    z-index: 1;
+}
+
+#weather-display {
+    position: absolute;
+    top: 2rem; 
+    right: 2.5rem; 
+    color: var(--text-color);
+    font-size: 1.2em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 1; 
+    transition: color 1s ease-in-out; /* Smooth transition for weather display color */
+}
+
+#weather-display svg {
+    color: var(--primary-color); 
+    width: 2.5em; 
+    height: 2.5em; 
+    fill: currentColor; 
+}
+
+.spin {
+    animation: spin 2s infinite linear;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(359deg);
+    }
+}
+
+header h1 {
+    margin: 0;
+    font-family: var(--serif-font);
+    font-size: 3em;
+    font-weight: 700;
+    transition: color 1s ease-in-out; /* Smooth transition for title color */
+}
+
+.tagline {
+    margin: 0.5rem 0 0 0;
+    font-size: 1.1em;
+    color: var(--subtle-text-color);
+    opacity: 0.9;
+    transition: color 1s ease-in-out; /* Smooth transition for tagline color */
+}
+
+.profile-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 28px;
+    flex-grow: 1;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
+.profile-card {
+    background-image: linear-gradient(to top, #222222, var(--card-background));
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 4px var(--shadow-color);
+    padding: 32px;
+    width: 100%;
+}
+
+.intro-section h2 {
+    font-family: var(--mono-font);
+    font-size: 2em;
+    color: var(--primary-color);
+    margin-top: 0;
+}
+
+.intro-title-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px; 
+}
+
+.intro-section p {
+    font-size: 1.1em;
+    line-height: 1.7;
+    color: var(--text-color);
+}
+
+.what-i-do-section {
+    margin-top: 40px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 30px;
+}
+
+.what-i-do-section h2 {
+    font-family: var(--serif-font);
+    font-size: 1.8em;
+    margin-top: 0;
+}
+
+.projects-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+.project-card {
+    background-color: var(--background-color);
+    border: 1px solid var(--border-color);
+    padding: 20px;
+    border-radius: 4px;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.project-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+}
+
+.project-card h3 {
+    font-family: var(--mono-font);
+    font-size: 1.2em;
+    color: var(--primary-color);
+    margin: 0 0 10px 0;
+}
+
+.project-card p {
+    font-size: 0.95em;
+    line-height: 1.6;
+    color: var(--subtle-text-color);
+    margin: 0;
+}
+
+.discord-section {
+    margin-bottom: 40px; 
+    padding-bottom: 30px; 
+    border-bottom: 1px solid var(--border-color); 
+}
+
+.discord-section h2 {
+    font-family: var(--serif-font);
+    font-size: 1.8em;
+    margin-top: 0;
+    display: none; 
+}
+
+#discord-status {
+    background-image: linear-gradient(to top, #222222, var(--card-background));
+    border: 1px solid var(--border-color);
+    padding: 20px;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    box-shadow: 0 2px 4px var(--shadow-color);
+    transition: transform 0.2s ease-in-out;
+}
+
+#discord-status:hover {
+    transform: scale(1.02);
+}
+
+.discord-user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.discord-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 2px solid var(--primary-color);
+    object-fit: cover;
+}
+
+.discord-username {
+    font-family: var(--mono-font);
+    font-size: 1.3em;
+    color: var(--primary-color);
+    margin: 0;
+}
+
+.discord-status-text {
+    font-size: 0.9em;
+    font-weight: 500;
+    margin: 0;
+}
+
+.status-online { color: #43b581; }
+.status-idle { color: #faa61a; }
+.status-dnd { color: #f04747; }
+.status-offline { color: var(--subtle-text-color); }
+
+.discord-custom-status {
+    font-size: 0.95em;
+    color: var(--text-color);
+    margin: 0;
+    padding-left: 5px; 
+}
+
+.discord-activity {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background-color: #222222;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #333333;
+}
+
+.activity-image {
+    width: 50px;
+    height: 50px;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+.activity-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.activity-type {
+    font-size: 0.8em;
+    color: var(--subtle-text-color);
+    margin: 0;
+    text-transform: uppercase;
+}
+
+.activity-name {
+    font-family: var(--mono-font);
+    font-size: 1em;
+    color: var(--text-color);
+    margin: 0;
+}
+
+.activity-state, .activity-details-line {
+    font-size: 0.85em;
+    color: var(--subtle-text-color);
+    margin: 0;
+}
+
+.activity-elapsed {
+    font-size: 0.85em;
+    color: var(--subtle-text-color);
+    margin: 0;
+    padding-top: 5px;
+}
+
+.spotify-progress {
+    margin-top: 10px;
+}
+
+.time-display {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8em;
+    color: var(--subtle-text-color);
+    margin-bottom: 5px;
+}
+
+.seek-bar {
+    width: 100%;
+    height: 4px;
+    background-color: #444;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.seek-bar-progress {
+    height: 100%;
+    background-color: var(--primary-color);
+    border-radius: 2px;
+    transition: width 0.1s linear;
+}
+
+footer {
+    text-align: center;
+    padding: 2rem;
+    margin-top: auto;
+    background: linear-gradient(to top, #0d1117, #1F1A33);
+    border-top: 1px solid var(--border-color);
+    color: var(--subtle-text-color);
+    font-size: 0.9em;
+}
+
+.flag-icon {
+    width: 60px; 
+    height: auto;
+    margin-right: 20px; 
+    position: relative; 
+    top: -9px; 
+}
+
+@media (max-width: 768px) {
+    header {
+        padding: 1.5rem;
+        min-height: 280px; /* Give header a minimum height */
+    }
+
+    header h1 {
+        font-size: 2.5em;
+    }
+
+    .profile-container {
+        padding: 1rem;
+    }
+
+    .projects-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #weather-display {
+        position: relative;
+        top: auto;
+        right: auto;
+        justify-content: center;
+        margin-bottom: 1rem;
+    }
+
+    .header-content {
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    header {
+        padding: 1rem;
+        min-height: 250px;
+    }
+
+    header h1 {
+        font-size: 2em;
+    }
+
+    .tagline {
+        font-size: 1em;
+    }
+
+    .profile-card {
+        padding: 1rem;
+    }
+
+    .intro-section h2 {
+        font-size: 1.5em;
+    }
+
+    .intro-section p {
+        font-size: 1em;
+    }
+}
+
+/* Webring Styles */
+.webring {
+    margin: 2rem auto;
+    border-collapse: collapse;
+    width: auto;
+}
+
+.webring td {
+    padding: 0.5rem 1rem;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.webring a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-family: var(--mono-font);
+    transition: color 0.2s ease-in-out;
+}
+
+.webring a:hover {
+    color: var(--primary-hover);
+}
+
+.webring img {
+    display: block;
+    margin: 0 auto;
+}
+
+/* Guestbook Styles */
+#guestbook-btn, #back-btn {
+    background-color: var(--primary-color);
+    color: var(--background-color);
+    border: none;
+    padding: 0.8rem 1.2rem;
+    font-family: var(--mono-font);
+    font-size: 1em;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+    margin-bottom: 1rem;
+}
+
+#guestbook-btn:hover, #back-btn:hover {
+    background-color: var(--primary-hover);
+}
+
+#guestbook-container {
+    width: 100%;
+}
+
+.hidden {
+    display: none;
+}
+
+#guestbook-iframe {
+    border-radius: 5px;
+    width: 100%;
+    height: 80vh;
+    border: solid;
+    border-color: #6d6d6d;
+    border-width: thick;
+}
+
+.settings-container {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.settings-container div {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.settings-container label {
+    color: white;
+    margin-left: 5px;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
