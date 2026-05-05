@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 		else if (currentTimeInMinutes >= sunsetTimeInMinutes - transitionDuration && currentTimeInMinutes < sunsetTimeInMinutes) {
 			const progress = (currentTimeInMinutes - (sunsetTimeInMinutes - transitionDuration)) / transitionDuration;
-			const dayColor = (currentWeatherCode >= 2 && currentWeatherCode <= 3) ? colors.dayCloudy : colors.dayClear; // Cloudy or Overcast
+			const dayColor = (currentWeatherCode >= 2 && currentWeatherCode <= 3) ? colors.dayCloudy : colors.dayClear;
 			targetColor = interpolateColor(dayColor, colors.sunriseSunset, progress);
 			starfieldOpacity = progress;
 		}
@@ -99,50 +99,50 @@ document.addEventListener('DOMContentLoaded', () => {
 	const getWeatherIcon = (weatherCode, isDay) => {
 		switch (weatherCode) {
 			case 0:
-				return isDay ? "clear-day" : "clear-night"; // Clear sky
+				return isDay ? "clear-day" : "clear-night";
 			case 1:
-				return isDay ? "partly-cloudy-day" : "partly-cloudy-night"; // Mainly clear
+				return isDay ? "partly-cloudy-day" : "partly-cloudy-night";
 			case 2:
-				return isDay ? "partly-cloudy-day" : "partly-cloudy-night"; // Partly cloudy
+				return isDay ? "partly-cloudy-day" : "partly-cloudy-night";
 			case 3:
-				return "overcast"; // Overcast
+				return "overcast";
 			case 45:
 			case 48:
-				return isDay ? "fog-day" : "fog-night"; // Fog and depositing fog
+				return isDay ? "fog-day" : "fog-night";
 			case 51:
 			case 53:
 			case 55:
-				return isDay ? "partly-cloudy-day-drizzle" : "partly-cloudy-night-drizzle"; // Drizzle
+				return isDay ? "partly-cloudy-day-drizzle" : "partly-cloudy-night-drizzle";
 			case 56:
 			case 57:
-				return isDay ? "extreme-day-sleet" : "extreme-night-sleet"; // Freezing Drizzle (using sleet as closest)
+				return isDay ? "extreme-day-sleet" : "extreme-night-sleet";
 			case 61:
 			case 63:
 			case 65:
-				return isDay ? "partly-cloudy-day-rain" : "partly-cloudy-night-rain"; // Rain
+				return isDay ? "partly-cloudy-day-rain" : "partly-cloudy-night-rain";
 			case 66:
 			case 67:
-				return isDay ? "extreme-day-sleet" : "extreme-night-sleet"; // Freezing Rain (using sleet as closest)
+				return isDay ? "extreme-day-sleet" : "extreme-night-sleet";
 			case 71:
 			case 73:
 			case 75:
-				return isDay ? "partly-cloudy-day-snow" : "partly-cloudy-night-snow"; // Snow fall
+				return isDay ? "partly-cloudy-day-snow" : "partly-cloudy-night-snow";
 			case 77:
-				return "snow"; // Snow grains
+				return "snow";
 			case 80:
 			case 81:
 			case 82:
-				return isDay ? "thunderstorms-day-rain" : "thunderstorms-night-rain"; // Rain showers (using thunderstorms-rain as closest)
+				return isDay ? "thunderstorms-day-rain" : "thunderstorms-night-rain";
 			case 85:
 			case 86:
-				return isDay ? "thunderstorms-day-snow" : "thunderstorms-night-snow"; // Snow showers (using thunderstorms-snow as closest)
+				return isDay ? "thunderstorms-day-snow" : "thunderstorms-night-snow";
 			case 95:
-				return isDay ? "thunderstorms-day" : "thunderstorms-night"; // Thunderstorm
+				return isDay ? "thunderstorms-day" : "thunderstorms-night";
 			case 96:
 			case 99:
-				return isDay ? "thunderstorms-day-extreme" : "thunderstorms-night-extreme"; // Thunderstorm with hail
+				return isDay ? "thunderstorms-day-extreme" : "thunderstorms-night-extreme";
 			default:
-				return "not-available"; // Unknown
+				return "not-available";
 		}
 	};
 
@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			return svgText
 		} catch (error) {
 			console.error(`Error fetching SVG for ${iconName}:`, error);
-			return ''; // Return empty string instead of fallback SVG
+			return '';
 		}
 	};
 
@@ -268,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
 							statusHtml += `<p class="discord-custom-status"><i>${activity.state}</i></p>`;
 						}
 						else if (activity.type === 2 && activity.name === "Spotify") {
-							const spotify = activity; // Use the activity object directly
+							const spotify = activity;
 							const albumArtUrl = spotify.assets && spotify.assets.large_image ? `https://i.scdn.co/image/${spotify.assets.large_image.replace('spotify:', '')}` : '';
 							statusHtml += `
                                 <div class="discord-activity spotify-activity">
@@ -437,7 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearInterval(window.headerInterval);
                 window.headerInterval = null;
             }
-            headerElement.style.background = ''; // Reset to default
+            headerElement.style.background = '';
 
             const textElements = [titleTextElement, taglineTextElement, dynamicHeaderTextElement, weatherDisplayElement];
             textElements.forEach(el => {
@@ -453,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const handleCloudsChange = () => {
         if (cloudsCheckbox.checked) {
-            fetchWeatherData(); // This will trigger updateCloudCover
+            fetchWeatherData();
         } else {
             if (typeof updateCloudCover === 'function') {
                 updateCloudCover(0);
