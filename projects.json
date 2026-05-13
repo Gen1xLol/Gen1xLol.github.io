@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Lighting Extension",
+    "description": "A fast, powerful and easy-to-use lighting engine powered by WebGL!",
+    "image": "https://extensions.penguinmod.com/images/Gen1x/lighting.avif"
+  },
+  {
+    "name": "Beat Sync",
+    "description": "An extension designed to let you sync anything in your project to a musical beat, with incredible precision.",
+    "image": "https://extensions.penguinmod.com/images/Gen1x/beat_sync.avif"
+  },
+  {
+    "name": "Random Utils",
+    "description": "Many blocks related to generating random values, including seed-based number generation, true number generation, UUID's, random strings, etc.",
+    "image": "https://extensions.penguinmod.com/images/Gen1x/randomutils.avif"
+  },
+  {
+    "name": "Storage Plus",
+    "description": "A storage extension with many more features. Featuring server storage (with a fast server), local storage and more!",
+    "image": "https://extensions.penguinmod.com/images/Gen1x/storage_plus.avif"
+  },
+  {
+    "name": "Chess Extension",
+    "description": "A powerful extension that lets you manage a chessboard, customize it, use Stockfish 17 (via API), a local chess engine (Lozza) and much, MUCH more!",
+    "image": "https://extensions.penguinmod.com/images/Gen1x/chess-ext.avif"
+  },
+  {
+    "name": "CATS",
+    "description": "Blocks related to cats.",
+    "image": "https://extensions.penguinmod.com/images/Gen1x/cats.avif"
+  }
+]

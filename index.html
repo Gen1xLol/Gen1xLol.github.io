@@ -1,108 +1,484 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gen1x's site</title>
-    <link rel="stylesheet" href="style.css">
-  </head>
-  <body>
-    <header>
-      <canvas id="stars-canvas"></canvas>
-      <canvas id="clouds-canvas"></canvas>
-      <div class="settings-container">
-        <div>
-            <input type="checkbox" id="dynamic-header-checkbox" checked>
-            <label for="dynamic-header-checkbox">Dynamic Header</label>
-        </div>
-        <div>
-            <input type="checkbox" id="clouds-checkbox" checked>
-            <label for="clouds-checkbox">Clouds</label>
-        </div>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gen1x</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0f0d14;
+  --surface:  #181520;
+  --border:   #2a2535;
+  --purple:   #a78bfa;
+  --purple-lt:#c4b5fd;
+  --purple-dim:#6d28d9;
+  --text:     #e9e4f0;
+  --mid:      #b0a8c8;
+  --soft:     #6b6080;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+header {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.header-inner {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 28px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.site-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--mid);
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+.site-name:hover { color: var(--purple); }
+
+nav { display: flex; gap: 0; }
+nav a {
+  font-size: 13px;
+  color: var(--soft);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+nav a:hover { color: var(--text); background: var(--surface); }
+
+main {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 72px 28px 0;
+}
+
+.intro {
+  margin-bottom: 64px;
+}
+.intro-label {
+  font-size: 12px;
+  color: var(--soft);
+  letter-spacing: 0.08em;
+  margin-bottom: 20px;
+}
+.intro h1 {
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-size: clamp(42px, 8vw, 64px);
+  font-weight: 400;
+  line-height: 1.05;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.intro h1 em {
+  font-style: normal;
+  color: var(--purple-lt);
+}
+.intro .prev {
+  font-size: 13px;
+  color: var(--soft);
+  margin-top: 10px;
+}
+.intro .prev span {
+  color: var(--mid);
+  font-weight: 500;
+}
+
+.age-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 28px;
+  color: var(--mid);
+  font-size: 14px;
+}
+.age-num {
+  font-family: 'Instrument Serif', serif;
+  font-size: 26px;
+  color: var(--purple);
+  line-height: 1;
+}
+.dot {
+  width: 5px; height: 5px;
+  background: var(--purple-dim);
+  border-radius: 50%;
+}
+
+.section {
+  margin-bottom: 52px;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--soft);
+  margin-bottom: 18px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.section p {
+  color: var(--mid);
+  font-size: 15px;
+  line-height: 1.8;
+  max-width: 560px;
+}
+.section p a {
+  color: var(--purple);
+  text-underline-offset: 3px;
+}
+
+.bullets {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 16px;
+}
+.bullets li {
+  font-size: 15px;
+  color: var(--mid);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bullets li::before {
+  content: '—';
+  color: var(--purple-dim);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.projects-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.project-link-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.project-link-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--mid);
+  text-decoration: none;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  transition: border-color 0.15s, color 0.15s;
+}
+.project-link-chip:hover {
+  border-color: var(--purple-dim);
+  color: var(--purple-lt);
+}
+.project-link-chip svg {
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.ext-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.ext-card {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  aspect-ratio: 16 / 9;
+  cursor: default;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.ext-card:hover {
+  border-color: var(--purple-dim);
+  transform: translateY(-2px);
+}
+
+.ext-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: opacity 0.2s;
+}
+.ext-card:hover img {
+  opacity: 0.35;
+}
+
+.ext-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 12px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.ext-card:hover .ext-overlay {
+  opacity: 1;
+}
+
+.ext-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+.ext-desc {
+  font-size: 11px;
+  color: var(--mid);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ext-card.no-img {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ext-card.no-img .ext-placeholder {
+  font-size: 28px;
+  opacity: 0.15;
+}
+
+footer {
+  margin-top: 80px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.spanish-tip {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--purple-dim);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+#mouse-tooltip {
+  position: fixed;
+  pointer-events: none;
+  z-index: 999;
+  background: var(--surface);
+  border: 1px solid var(--purple-dim);
+  color: var(--purple-lt);
+  font-size: 12px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  white-space: nowrap;
+  padding: 6px 12px;
+  border-radius: 6px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+
+@media (max-width: 520px) {
+  nav { display: none; }
+  .ext-grid { grid-template-columns: repeat(1, 1fr); }
+}
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a class="site-name" href="#">gen1x</a>
+    <nav>
+      <a href="#about">about</a>
+      <a href="#projects">projects</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <div class="intro">
+    <p class="intro-label">hey, i'm</p>
+    <h1>Gen<em>1x</em></h1>
+    <p class="prev">also known as <span>G1nX</span></p>
+    <div class="age-line">
+      <span class="age-num" id="age-display">—</span>
+      <span style="display:flex;align-items:center;gap:6px;">years old from <img src="argentina.png" alt="Argentina" style="width:24px;height:24px;object-fit:contain;vertical-align:middle;"></span>
+    </div>
+  </div>
+
+  <div id="about" class="section">
+    <p class="section-title">about</p>
+    <p>
+      Hiya! I'm a guy from Argentina who really loves programming.
+	  I dedicate my free time to either doing nothing, or working on cool things.
+	  What are those "cool things"? Well, it depends.
+	  <br>
+	  I like creating PenguinMod extensions that people find useful. It feels like a fair test of my abilities as a programmer.
+	  Some notable ones are <strong style="color:var(--text);font-weight:500">Beat Sync</strong> and <strong style="color:var(--text);font-weight:500">Lighting</strong>.
+	  I'm listed as <span>G1nX</span> on the PenguinMod Extra Gallery.
+	  <br><br>
+	  I really like the challenging parts in programming. I like looking at things from different angles, trying to piece things together. I hope this doesn't sound pretentious lol
+	  <br>
+	  Also, I LOVE meeting new people!! If you wanna talk to me, just add me at <span><a href="https://discord.com/users/1264445751723823245" target="_blank" rel="noopener">gen1x_loll</a></span> on Discord! I don't bite :D
+    </p>
+  </div>
+
+  <div class="section">
+    <p class="section-title">identity</p>
+    <p class="card-body">
+      I was born in Argentina (<span class="spanish-tip" onclick="alert('Translation:\nget me out of latin america')">sáquenme de latinoamérica</span>). I'm bisexual and have Autism and ADHD.
+	  <br>
+	  I can speak Spanish (natively) and English (fluently-ish...?)
+	  <br>
+	  My timezone is UTC-3. I'm 3 hours behind the timezone that the brits use. <small style="color:var(--soft);">(don't take the wrong way lmfao, british people are cool)</small>
+    </p>
+  </div>
+
+  <div id="projects" class="section">
+    <p class="section-title">projects</p>
+    <div class="projects-wrapper">
+
+      <div class="project-link-row">
+        <a class="project-link-chip" href="https://extensions.penguinmod.com/" target="_blank" rel="noopener">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          PenguinMod Extra Gallery
+        </a>
+        <a class="project-link-chip" href="https://wiki.penguinmod.com/" target="_blank" rel="noopener">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          PenguinMod Wiki
+        </a>
       </div>
-      <div id="dynamic-header-text">
-        This header will change depending on my time of day and the weather in my area.
+
+      <div class="ext-grid" id="ext-grid">
       </div>
-      <div class="header-content">
-        <div id="weather-display">
-          Loading weather...
-        </div>
-        <h1>
-          <span id="title-text" class="unselectable">Gen1x</span>
-        </h1>
-        <p class="tagline">
-          <span id="tagline-text" class="unselectable">I make stuff :3</span>
-        </p>
-      </div>
-    </header>
-    <main class="profile-container">
-      <div class="profile-card">
-        <div class="discord-section">
-          <div id="discord-status"> Loading Discord status... </div>
-        </div>
-        <div class="intro-section">
-          <div class="intro-title-container">
-            <img src="argentina.png" alt="Argentina Flag" class="flag-icon">
-            <h2>Hey! I'm Gen1x.</h2>
+
+    </div>
+  </div>
+
+</main>
+
+<footer style="max-width:680px;margin-left:auto;margin-right:auto;padding-left:28px;padding-right:28px;">
+  <span>gen1x</span>
+  <span id="footer-year"></span>
+</footer>
+
+<div id="mouse-tooltip">get me out of latin america</div>
+
+<script>
+  function calcAge() {
+    const birth = new Date(Date.UTC(2010, 2, 16, 15, 27, 0));
+    const now = new Date();
+    let y = now.getUTCFullYear() - birth.getUTCFullYear();
+    const m = now.getUTCMonth() - birth.getUTCMonth();
+    if (m < 0 || (m === 0 && now.getUTCDate() < birth.getUTCDate())) y--;
+    return y;
+  }
+  document.getElementById('age-display').textContent = calcAge();
+  document.getElementById('footer-year').textContent = new Date().getFullYear();
+
+  fetch('projects.json')
+    .then(r => r.json())
+    .then(projects => {
+      const grid = document.getElementById('ext-grid');
+      projects.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'ext-card';
+        card.innerHTML = `
+          <img src="${p.image}" alt="${p.name}" loading="lazy" onerror="this.style.display='none'">
+          <div class="ext-overlay">
+            <div class="ext-name">${p.name}</div>
+            <div class="ext-desc">${p.description}</div>
           </div>
-          <p>I'm a <span id="age"></span> year old bisexual guy from Argentina who really likes programming. I have autism and ADHD, and coding is one of the things I'm most passionate about. </p>
-          <p>I love making extensions for TurboWarp and PenguinMod because I want to create useful tools that people will rely on; the kind of extensions you find yourself adding to every single project.</p>
-          <p>The reason this has so much shit, is because uhhh I was bored and I like how it looks lmao</p>
-          <button id="guestbook-btn">My guestbook</button>		  
-		</div>
-        <div class="what-i-do-section">
-          <h2>What I Do</h2>
-          <div class="projects-grid">
-            <div class="project-card">
-              <h3>TurboWarp & PenguinMod Extensions</h3>
-              <p>I make extensions for both TurboWarp and PenguinMod, creating custom blocks and features to enhance the editors.</p>
-            </div>
-            <div class="project-card">
-              <h3>Programming</h3>
-              <p>I'm always tinkering with something new. Whether it's a small script to automate a task or a full-fledged application, I love the challenge of building things with code.</p>
-            </div>
-            <div class="project-card">
-              <h3>Chess</h3>
-              <p>I'm a big fan of chess. I'm not a grandmaster or anything, but I enjoy a good game and I'm always trying to learn new openings and tactics.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div id="guestbook-container" class="hidden">
-        <button id="back-btn">Back</button>
-        <iframe id="guestbook-iframe" src="https://gen1x.atabook.org/"></iframe>
-      </div>
-    </main>
-    <table class="webring">
-        <tr>
-            <td>
-                <a
-                    href="https://steve0greatness.github.io/webring/sites/gen1x/prev.xhtml"
-                >Prev</a>
-            </td>
-            <td>
-                <a
-                    href="https://steve0greatness.github.io/webring"
-                >
-                    <img
-                        src="https://steve0greatness.github.io/webring/logo-500.webp"
-                        width="100"
-                        height="42"
-                    />
-                </a>
-            </td>
-            <td>
-                <a
-                    href="https://steve0greatness.github.io/webring/sites/gen1x/next.xhtml"
-                >Next</a>
-            </td>
-        </tr>
-    </table>
-    <footer id="footer">
-      <p>Made with ❤️ in Argentina.</p>
-    </footer>
-    <script src="script.js"></script>
-    <script src="stars.js"></script>
-    <script src="clouds.js"></script>
-  </body>
+        `;
+        grid.appendChild(card);
+      });
+    })
+    .catch(() => {
+      document.getElementById('ext-grid').style.display = 'none';
+    });
+
+  const tip = document.getElementById('mouse-tooltip');
+  const tip_el = document.querySelector('.spanish-tip');
+  let mouseX = 0, mouseY = 0;
+  let curX = 0, curY = 0;
+  let visible = false;
+  let rafId = null;
+
+  const OFFSET_X = 14;
+  const OFFSET_Y = -36;
+  const LERP = 0.12;
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  function animate() {
+    curX = lerp(curX, mouseX, LERP);
+    curY = lerp(curY, mouseY, LERP);
+    tip.style.transform = `translate(${curX + OFFSET_X}px, ${curY + OFFSET_Y}px)`;
+    if (visible) rafId = requestAnimationFrame(animate);
+  }
+
+  document.addEventListener('mousemove', e => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+  });
+
+  tip_el.addEventListener('mouseenter', e => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+    curX = mouseX;
+    curY = mouseY;
+    visible = true;
+    tip.style.opacity = '1';
+    rafId = requestAnimationFrame(animate);
+  });
+
+  tip_el.addEventListener('mouseleave', () => {
+    visible = false;
+    tip.style.opacity = '0';
+    cancelAnimationFrame(rafId);
+  });
+</script>
+</body>
 </html>
