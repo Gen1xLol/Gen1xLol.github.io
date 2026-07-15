@@ -31,14 +31,22 @@ export default function Home() {
     alert('Translation:\nget me out of latin america')
   }
 
+  function scrollToSection(e, id) {
+    e.preventDefault()
+    const element = document.getElementById(id)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' })
+    }
+  }
+
   return (
     <>
       <header>
         <div className="header-inner">
           <a className="site-name" href="#">gen1x</a>
           <nav>
-            <a href="#about">about</a>
-            <a href="#projects">projects</a>
+            <a href="#about" onClick={(e) => scrollToSection(e, 'about')}>about</a>
+            <a href="#projects" onClick={(e) => scrollToSection(e, 'projects')}>projects</a>
           </nav>
         </div>
       </header>
@@ -46,17 +54,25 @@ export default function Home() {
       <main>
         <div className="intro">
           <p className="intro-label">hey, i'm</p>
-          <h1>Gen<em>1x</em></h1>
-          <p className="prev">also known as <span>G1nX</span></p>
-          <div className="age-line">
-            <span className="age-num" id="age-display">{age}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              years old from <img src={argentinaFlag} alt="Argentina" style={{ width: '24px', height: '24px', objectFit: 'contain', verticalAlign: 'middle' }} />
-            </span>
+          <h1 className="fade-in" style={{ animationDelay: '0.6s' }}>
+            <span className="float-char" style={{ animationDelay: '0s' }}>G</span>
+            <span className="float-char" style={{ animationDelay: '0.15s' }}>e</span>
+            <span className="float-char" style={{ animationDelay: '0.3s' }}>n</span>
+            <em className="float-char" style={{ animationDelay: '0.45s' }}>1</em>
+            <em className="float-char" style={{ animationDelay: '0.6s' }}>x</em>
+          </h1>
+          <div className="fade-in" style={{ animationDelay: '1.4s' }}>
+            <p className="prev">also known as <span>G1nX</span></p>
+            <div className="age-line">
+              <span className="age-num" id="age-display">{age}</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                years old from <img src={argentinaFlag} alt="Argentina" style={{ width: '24px', height: '24px', objectFit: 'contain', verticalAlign: 'middle' }} />
+              </span>
+            </div>
           </div>
         </div>
 
-        <div id="about" className="section">
+        <div id="about" className="section fade-in" style={{ animationDelay: '1.7s' }}>
           <p className="section-title">about</p>
           <p>
             Hiya! I'm a guy from Argentina who really loves programming.
@@ -78,7 +94,7 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="section">
+        <div className="section fade-in" style={{ animationDelay: '2.0s' }}>
           <p className="section-title">identity</p>
           <p className="card-body">
             I was born in Argentina (<span className="spanish-tip" ref={spanishTipRef} onClick={handleSpanishTipClick}>sáquenme de latinoamérica</span>). I'm bisexual and have Autism and ADHD.
@@ -89,7 +105,7 @@ export default function Home() {
           </p>
         </div>
 
-        <div id="projects" className="section">
+        <div id="projects" className="section fade-in" style={{ animationDelay: '2.3s' }}>
           <p className="section-title">projects</p>
           <div className="projects-wrapper">
 
@@ -129,7 +145,7 @@ export default function Home() {
         </div>
       </main>
 
-      <footer style={{ maxWidth: '680px', marginLeft: 'auto', marginRight: 'auto', paddingLeft: '28px', paddingRight: '28px' }}>
+      <footer className="fade-in" style={{ animationDelay: '2.6s', maxWidth: '680px', marginLeft: 'auto', marginRight: 'auto', paddingLeft: '28px', paddingRight: '28px' }}>
         <span>gen1x</span>
         <span id="footer-year">{new Date().getFullYear()}</span>
       </footer>
