@@ -751,14 +751,6 @@
     "phash": "ffbf9fbf80808c00",
     "needs_review": true
   },
-  "88-31-banner.gif": {
-    "filename": "88-31-banner.gif",
-    "text": "(none)",
-    "width": 88,
-    "height": 31,
-    "phash": "7d7f7f3f7d717979",
-    "needs_review": false
-  },
   "8831.gif": {
     "filename": "8831.gif",
     "text": "ROLY",
@@ -6631,17 +6623,9 @@
     "phash": "ff81808c8c8081fe",
     "needs_review": false
   },
-  "bluepantsu.gif": {
-    "filename": "bluepantsu.gif",
-    "text": "137",
-    "width": 88,
-    "height": 31,
-    "phash": "50193f3e7c786a21",
-    "needs_review": false
-  },
   "bluetexture (1).gif": {
     "filename": "bluetexture (1).gif",
-    "text": "The provided image is too blurry and pixelated to accurately recognize any text or graphics. Therefore, no text can be extracted from it.",
+    "text": "(none)",
     "width": 144,
     "height": 144,
     "phash": "206c6ea8647eee0c",

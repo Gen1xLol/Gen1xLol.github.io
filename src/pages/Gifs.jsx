@@ -188,14 +188,15 @@ export default function Gifs() {
       .then(res => res.json())
       .then(data => {
         const list = Object.values(data).map(item => {
-          const text = item.text || ''
+          const rawText = item.text || ''
+          const text = rawText.toLowerCase() === '(none)' ? '' : rawText
           const filename = item.filename || ''
           const cleanText = text.toLowerCase()
           const cleanFilename = filename.toLowerCase()
           const words = (cleanText + ' ' + cleanFilename)
             .split(/[^a-z0-9]+/)
             .filter(Boolean)
-          return { ...item, cleanText, cleanFilename, words }
+          return { ...item, text, cleanText, cleanFilename, words }
         })
         setAllGifs(list)
       })
