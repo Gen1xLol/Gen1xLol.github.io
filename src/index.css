@@ -544,6 +544,7 @@ h1 {
   height: 31px;
   object-fit: contain;
   display: block;
+  image-rendering: pixelated;
 }
 
 .gif-card-text {
