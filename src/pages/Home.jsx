@@ -47,6 +47,7 @@ export default function Home() {
           <nav>
             <a href="#about" onClick={(e) => scrollToSection(e, 'about')}>about</a>
             <a href="#projects" onClick={(e) => scrollToSection(e, 'projects')}>projects</a>
+            <Link to="/88x31.html">88x31</Link>
           </nav>
         </div>
       </header>
@@ -91,6 +92,8 @@ export default function Home() {
             Also, I LOVE meeting new people!! If you wanna talk to me, just add me at <span><a href="https://discord.com/users/1264445751723823245" target="_blank" rel="noopener">gen1x_loll</a></span> on Discord! I don't bite :D
             <br /><br />
             <Link to="/q&a.html">Check out my totally real FAQ!</Link>
+            <br />
+            <Link to="/88x31.html">Browse my 88x31 GIF collection!</Link>
           </p>
         </div>
 
