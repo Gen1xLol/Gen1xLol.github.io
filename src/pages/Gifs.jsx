@@ -177,14 +177,42 @@ function Pagination({ page, totalPages, onPage }) {
   )
 }
 
-export default function Gifs() {
+function PersistentDetails({ storageKey, defaultOpen, className, children }) {
+  const [open, setOpen] = useState(() => {
+    try {
+      const stored = localStorage.getItem(storageKey)
+      if (stored === null) return defaultOpen
+      return stored === 'true'
+    } catch {
+      return defaultOpen
+    }
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey, String(open))
+    } catch {}
+  }, [storageKey, open])
+
+  return (
+    <details
+      className={className}
+      open={open}
+      onToggle={e => setOpen(e.target.open)}
+    >
+      {children}
+    </details>
+  )
+}
+
+function GifBrowser({ jsonPath, gifFolder, copyUrlBase }) {
   const [allGifs, setAllGifs] = useState([])
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
   const [copiedId, setCopiedId] = useState(null)
 
   useEffect(() => {
-    fetch('/index.json')
+    fetch(jsonPath)
       .then(res => res.json())
       .then(data => {
         const list = Object.values(data).map(item => {
@@ -201,7 +229,7 @@ export default function Gifs() {
         setAllGifs(list)
       })
       .catch(err => console.error(err))
-  }, [])
+  }, [jsonPath])
 
   const filteredGifs = useMemo(() => {
     if (!query.trim()) return allGifs
@@ -234,7 +262,7 @@ export default function Gifs() {
   }
 
   const handleCopy = (item) => {
-    const htmlCode = `<a href="https://gen1xlol.github.io" target="_blank"><img src="https://gen1xlol.github.io/gifs/${encodeURIComponent(item.filename)}" alt="${(item.text || '').replace(/"/g, '&quot;')}" width="88" height="31" /></a>`
+    const htmlCode = `<a href="${copyUrlBase}" target="_blank"><img src="${copyUrlBase}/${gifFolder}/${encodeURIComponent(item.filename)}" alt="${(item.text || '').replace(/"/g, '&quot;')}" width="88" height="31" /></a>`
     navigator.clipboard.writeText(htmlCode).then(() => {
       setCopiedId(item.filename)
       setTimeout(() => setCopiedId(null), 1500)
@@ -245,75 +273,123 @@ export default function Gifs() {
   const end = Math.min(page * PAGE_SIZE, filteredGifs.length)
 
   return (
+    <div className="gif-browser">
+      <div className="gif-browser-toolbar">
+        <input
+          type="text"
+          className="gif-search-input"
+          placeholder="Search buttons by their text..."
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+        />
+        <span className="gif-results-count">
+          {allGifs.length === 0
+            ? 'loading...'
+            : filteredGifs.length > 0
+              ? <>{start}-{end} <span className="gif-results-of">of</span> {filteredGifs.length}</>
+              : 'no results'}
+        </span>
+      </div>
+
+      <Pagination page={page} totalPages={totalPages} onPage={handlePage} />
+
+      <div className="gif-grid">
+        {displayedGifs.map((item, i) => (
+          <div
+            className="gif-card"
+            key={i}
+            onClick={() => handleCopy(item)}
+            title="Click to copy HTML embed code"
+          >
+            <div className="gif-img-container">
+              <img
+                src={`/${gifFolder}/${encodeURIComponent(item.filename)}`}
+                alt={item.text || '88x31 button'}
+                loading="lazy"
+              />
+            </div>
+            <div className="gif-card-text">
+              {item.text || <span className="no-ocr-text">no text</span>}
+            </div>
+            {copiedId === item.filename && (
+              <div className="gif-copied-overlay">
+                <span>Copied!</span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <Pagination page={page} totalPages={totalPages} onPage={handlePage} />
+    </div>
+  )
+}
+
+export default function Gifs() {
+  return (
     <>
       <div className="gif-page-header">
         <div className="gif-page-header-inner">
           <Link to="/" className="gif-back-link">← back</Link>
           <div className="gif-page-title-group">
             <span className="gif-page-title">88x31 Gallery</span>
-            <span className="gif-page-subtitle">{allGifs.length > 0 ? `${allGifs.length} buttons` : 'loading...'}</span>
           </div>
-        </div>
-      </div>
-
-      <div className="gif-sticky-bar">
-        <div className="gif-sticky-bar-inner">
-          <input
-            type="text"
-            className="gif-search-input"
-            placeholder="Search buttons by their text..."
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-          />
-          <span className="gif-results-count">
-            {filteredGifs.length > 0
-              ? <>{start}-{end} <span className="gif-results-of">of</span> {filteredGifs.length}</>
-              : 'no results'}
-          </span>
         </div>
       </div>
 
       <main className="gif-main">
         <div className="gif-warning">
-          I haven't checked each of the 6497 GIF files myself, so there might be mistakes in the text!
-		  <br />
-		  Also, click on an individual button to copy its HTML embed code.
+          I haven't checked each GIF file myself, so there might be mistakes in the text!
+          <br />
+          Also, click on an individual button to copy its HTML embed code.
         </div>
 
-        <Pagination page={page} totalPages={totalPages} onPage={handlePage} />
-
-        <div className="gif-grid">
-          {displayedGifs.map((item, i) => (
-            <div
-              className="gif-card"
-              key={i}
-              onClick={() => handleCopy(item)}
-              title="Click to copy HTML embed code"
+        <PersistentDetails storageKey="gif-section-88x31nl" defaultOpen={true} className="gif-browser-section">
+          <summary className="gif-browser-summary">
+            <span className="gif-browser-summary-title">88x31.nl</span>
+            <a
+              href="https://88x31.nl"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="gif-browser-source-link"
+              onClick={e => e.stopPropagation()}
             >
-              <div className="gif-img-container">
-                <img
-                  src={`/gifs/${encodeURIComponent(item.filename)}`}
-                  alt={item.text || '88x31 button'}
-                  loading="lazy"
-                />
-              </div>
-              <div className="gif-card-text">
-                {item.text || <span className="no-ocr-text">no text</span>}
-              </div>
-              {copiedId === item.filename && (
-                <div className="gif-copied-overlay">
-                  <span>Copied!</span>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+              visit source ↗
+            </a>
+          </summary>
+          <GifBrowser
+            jsonPath="/index.json"
+            gifFolder="gifs"
+            copyUrlBase="https://gen1xlol.github.io"
+          />
+        </PersistentDetails>
 
-        <Pagination page={page} totalPages={totalPages} onPage={handlePage} />
+        <PersistentDetails storageKey="gif-section-yesterweb" defaultOpen={true} className="gif-browser-section">
+          <summary className="gif-browser-summary">
+            <span className="gif-browser-summary-title">Yesterweb</span>
+            <a
+              href="https://yesterweb.org/graphics/buttons"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="gif-browser-source-link"
+              onClick={e => e.stopPropagation()}
+            >
+              visit source ↗
+            </a>
+          </summary>
+          <GifBrowser
+            jsonPath="/index2.json"
+            gifFolder="gifs2"
+            copyUrlBase="https://gen1xlol.github.io"
+          />
+        </PersistentDetails>
 
         <details className="gif-about-section">
           <summary className="gif-about-summary">About this project</summary>
           <div className="gif-about-body">
+		    <p>
+			  <b>UPDATE:</b> I've found more collections and have been making copies of my original script to process them as well! -July 17th, 2026
+			</p>
             <p>
               The reason I have randomly decided to pour ~5 hours of my time into this silly project is because one day I was bored, looking through a friend's website, when I noticed something that said "88x31" on it. Me, being curious, I naturally did some Google-Fu to find out what it was.
             </p>
@@ -332,9 +408,9 @@ export default function Gifs() {
             <p>
               Now all that needed to be done is create the gallery page! ...So here we are.
             </p>
-			<p>
-			  Also, I've been manually deleting every NSFW / sexually suggestive button I can find. Please report any sussy ones to me over on Discord and I will get rid of them ASAP.
-			</p>
+            <p>
+              Also, I've been manually deleting every NSFW / sexually suggestive button I can find. Please report any sussy ones to me over on Discord and I will get rid of them ASAP.
+            </p>
           </div>
         </details>
       </main>
