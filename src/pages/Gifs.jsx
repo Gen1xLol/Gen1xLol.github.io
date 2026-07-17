@@ -43,41 +43,43 @@ function getSearchMatch(item, cleanQuery, queryWords) {
   let matchesCount = 0
   for (const qWord of queryWords) {
     let bestWordScore = 0
+
     for (const tWord of item.words) {
-      if (tWord.includes(qWord)) {
-        const score = qWord.length / tWord.length
-        if (score > bestWordScore) bestWordScore = score
-      } else {
+      if (tWord === qWord) {
+        bestWordScore = Math.max(bestWordScore, 1)
+        continue
+      }
+
+      if (qWord.length >= 3 && tWord.startsWith(qWord)) {
+        const score = 0.7 + 0.3 * (qWord.length / tWord.length)
+        bestWordScore = Math.max(bestWordScore, score)
+        continue
+      }
+
+      if (qWord.length >= 4 && tWord.includes(qWord)) {
+        const score = 0.5 + 0.3 * (qWord.length / tWord.length)
+        bestWordScore = Math.max(bestWordScore, score)
+        continue
+      }
+
+      if (qWord.length >= 4) {
         const dist = levenshteinDistance(qWord, tWord)
         const maxLen = Math.max(qWord.length, tWord.length)
-        const allowedTypos = qWord.length <= 4 ? 1 : 2
+        const allowedTypos = qWord.length <= 5 ? 1 : 2
         if (dist <= allowedTypos) {
-          const score = ((maxLen - dist) / maxLen) * 0.8
-          if (score > bestWordScore) bestWordScore = score
+          const score = ((maxLen - dist) / maxLen) * 0.75
+          bestWordScore = Math.max(bestWordScore, score)
         }
       }
     }
-    if (bestWordScore > 0.25) {
+
+    if (bestWordScore > 0.45) {
       totalScore += bestWordScore
       matchesCount++
     }
   }
-  if (matchesCount === queryWords.length) return { match: true, score: totalScore }
 
-  let subsequenceIdx = 0
-  let subsequenceMatches = 0
-  const combined = item.cleanText + ' ' + item.cleanFilename
-  for (let i = 0; i < cleanQuery.length; i++) {
-    const char = cleanQuery[i]
-    const foundIdx = combined.indexOf(char, subsequenceIdx)
-    if (foundIdx !== -1) {
-      subsequenceMatches++
-      subsequenceIdx = foundIdx + 1
-    }
-  }
-  if (subsequenceMatches === cleanQuery.length && cleanQuery.length > 2) {
-    return { match: true, score: 5 + (subsequenceMatches / combined.length) }
-  }
+  if (matchesCount === queryWords.length) return { match: true, score: totalScore }
 
   return { match: false, score: 0 }
 }
@@ -394,6 +396,22 @@ export default function Gifs() {
 			  <b>UPDATE:</b> I've found more collections and have been making copies of my original script to process them as well! -July 17th, 2026
 			</p>
             <p>
+              This site is compatible with both mobile and desktop, although it might look too tiny on the latter. If you're somehow on a device that makes this page look ugly...{" "}
+              <span className="hey-word">
+                {"hey".split("").map((char, i) => (
+                  <span
+                    key={i}
+                    className="hey-char"
+                    style={{ animationDelay: `${i * 0.3}s` }}
+                  >
+                    {char}
+                  </span>
+                ))}
+              </span>{" "}
+			  <br />
+              <small style={{ color: 'var(--soft)' }}>(does a really cool and mysterious movement with my flimsy fingers, which you can definitely see right now, and fades away into the darkness)</small>
+            </p>
+			<p>
               The reason I have randomly decided to pour ~5 hours of my time into this silly project is because one day I was bored, looking through a friend's website, when I noticed something that said "88x31" on it. Me, being curious, I naturally did some Google-Fu to find out what it was.
             </p>
             <p>

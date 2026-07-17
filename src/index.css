@@ -370,6 +370,52 @@ h1 {
   animation: float 2.5s ease-in-out infinite;
 }
 
+.hey-word {
+  display: inline-flex;
+  font-family: 'Instrument Serif', serif;
+  font-weight: 400;
+  font-size: 1.15em;
+  letter-spacing: 0.03em;
+  transform: scaleX(1.13);
+  transform-origin: left;
+  margin-right: 0.15em;
+}
+
+@keyframes heyWaveGlow {
+  0% {
+    transform: translateY(0);
+    color: var(--text);
+    text-shadow: none;
+  }
+  25% {
+    transform: translateY(-0.6em);
+    color: #ff6ec7;
+    text-shadow: 0 0 0.8em rgba(255, 110, 199, 0.9), 0 0 1.6em rgba(255, 110, 199, 0.5);
+  }
+  50% {
+    transform: translateY(0);
+    color: var(--text);
+    text-shadow: none;
+  }
+  75% {
+    transform: translateY(0.2em);
+    color: var(--text);
+    text-shadow: none;
+  }
+  100% {
+    transform: translateY(0);
+    color: var(--text);
+    text-shadow: none;
+  }
+}
+
+.hey-char {
+  display: inline-block;
+  will-change: transform;
+  backface-visibility: hidden;
+  animation: heyWaveGlow 3.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
