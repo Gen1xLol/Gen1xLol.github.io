@@ -92,6 +92,8 @@ export default function Home() {
             Also, I LOVE meeting new people!! If you wanna talk to me, just add me at <span><a href="https://discord.com/users/1264445751723823245" target="_blank" rel="noopener">gen1x_loll</a></span> on Discord! I don't bite :D
             <br />
 			I'm taken and I have <a href="https://x.com/WinkMouse350" target="_blank" rel="noopener">the best boyfriend ever</a> {"<3"}
+			<br />
+			Also, special thanks to Ash for the "imsogay.me" subdomain :D
 			<br /><br />
             <Link to="/q&a.html">Check out my totally real FAQ!</Link>
             <br />
