@@ -315,7 +315,7 @@ export default function Gifs() {
           <summary className="gif-about-summary">About this project</summary>
           <div className="gif-about-body">
             <p>
-              The reason I have decided to randomly pour around 5 hours of my time into this silly project is because one day I was bored, looking through a friend's website, when I noticed something that said "88x31" on it. Me, being curious, I naturally did some Google-Fu to find out what it was.
+              The reason I have randomly decided to pour ~5 hours of my time into this silly project is because one day I was bored, looking through a friend's website, when I noticed something that said "88x31" on it. Me, being curious, I naturally did some Google-Fu to find out what it was.
             </p>
             <p>
               88x31 is basically what it says right on the tin: images, usually GIFs, that are exactly 88 pixels wide and 31 pixels tall. I liked the idea and thought "Oh, this would look cool on my own site!". On the search results, I found <a href="https://88x31.nl" target="_blank" rel="noopener noreferrer">a great collection</a> of these types of images. What frustrated me is that it didn't let me search through the images... so I had an idea: "What if I made one? Using some local OCR model?"
@@ -324,14 +324,17 @@ export default function Gifs() {
               So I fired off good old Claude asking it for help on nice (yet performant) local OCR models for Ollama. After some back and forth, it suggested the one I ended up sticking to in the end: GLM-OCR.
             </p>
             <p>
-              I first outlined a Python script on my own laptop, but then moved it to a Colab notebook and kept tinkering with it there (Thanks, Claude!).
+              I first outlined a Python script on my own laptop, but then moved it to a Colab notebook and kept tinkering with it there (Thanks, Claude!)
             </p>
             <p>
-              After ~5 hours, I managed to finish the Python script. Around 2 hours, 25 minutes, and 59 seconds later, the JSON was ready, with only 4 fails! (I will fix those... sometime soon...)
+              After ~5 hours, I managed to finish the Python script. Around 2 hours later, the JSON was ready, with only 4 fails! (I will fix those... sometime soon...)
             </p>
             <p>
-              Now all that needed to be done is create the gallery page! ... So here we are.
+              Now all that needed to be done is create the gallery page! ...So here we are.
             </p>
+			<p>
+			  Also, I've been manually deleting every NSFW / sexually suggestive button I can find. Please report any sussy ones to me over on Discord and I will get rid of them ASAP.
+			</p>
           </div>
         </details>
       </main>
