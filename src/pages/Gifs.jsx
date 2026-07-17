@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 
 const PAGE_SIZE = 100
@@ -210,6 +210,7 @@ function GifBrowser({ jsonPath, gifFolder, copyUrlBase }) {
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
   const [copiedId, setCopiedId] = useState(null)
+  const containerRef = useRef(null)
 
   useEffect(() => {
     fetch(jsonPath)
@@ -258,7 +259,9 @@ function GifBrowser({ jsonPath, gifFolder, copyUrlBase }) {
 
   const handlePage = (p) => {
     setPage(p)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    if (containerRef.current) {
+      containerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
   }
 
   const handleCopy = (item) => {
@@ -273,7 +276,7 @@ function GifBrowser({ jsonPath, gifFolder, copyUrlBase }) {
   const end = Math.min(page * PAGE_SIZE, filteredGifs.length)
 
   return (
-    <div className="gif-browser">
+    <div className="gif-browser" ref={containerRef}>
       <div className="gif-browser-toolbar">
         <input
           type="text"
