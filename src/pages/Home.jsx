@@ -47,7 +47,7 @@ export default function Home() {
           <nav>
             <a href="#about" onClick={(e) => scrollToSection(e, 'about')}>about</a>
             <a href="#projects" onClick={(e) => scrollToSection(e, 'projects')}>projects</a>
-            <Link to="/88x31.html">88x31</Link>
+            <Link to="/88x31">88x31</Link>
           </nav>
         </div>
       </header>
@@ -95,9 +95,9 @@ export default function Home() {
 			<br />
 			Also, special thanks to Ash for the "imsogay.me" subdomain :D
 			<br /><br />
-            <Link to="/q&a.html">Check out my totally real FAQ!</Link>
+            <Link to="/q&a">Check out my totally real FAQ!</Link>
             <br />
-            <Link to="/88x31.html">Browse my 88x31 GIF collection!</Link>
+            <Link to="/88x31">Browse my 88x31 GIF collection!</Link>
           </p>
         </div>
 

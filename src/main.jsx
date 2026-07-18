@@ -11,8 +11,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <HashRouter>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/q&a.html" element={<QA />} />
-        <Route path="/88x31.html" element={<Gifs />} />
+        <Route path="/q&a" element={<QA />} />
+        <Route path="/88x31" element={<Gifs />} />
       </Routes>
     </HashRouter>
   </React.StrictMode>,
