@@ -85,7 +85,8 @@ export default function Home() {
             I'm listed as <span>G1nX</span> on the PenguinMod Extra Gallery.
             <br /><br />
             I really like the challenging parts in programming. I like looking at things from different angles, trying to piece things together. I hope this doesn't sound pretentious lol
-            <br /><br />
+            I also like playing videogames from time to time. I'm REALLY into UNDERTALE and DELTARUNE :D
+			<br /><br />
             I'm also a "writer" <small style={{ color: 'var(--soft)' }}>(I don't have much experience...)</small>
             <br />Here's <a href="https://bit.ly/4vrdkiM" target="_blank" rel="noopener">my poetry collection</a> if you want to see what I've written so far.
             <br /><br />
@@ -98,6 +99,8 @@ export default function Home() {
             <Link to="/q&a">Check out my totally real FAQ!</Link>
             <br />
             <Link to="/88x31">Browse my 88x31 GIF collection!</Link>
+			<br />
+            <a href="https://gen1xlol.github.io/Jarona-TTS" target="_blank" rel="noopener">Try Jarona TTS!</a> (slight DELTARUNE spoilers...)
           </p>
         </div>
 
