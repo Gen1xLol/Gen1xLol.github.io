@@ -55,6 +55,42 @@ function loadGuideFont() {
   return GUIDE_FONTS[0].value
 }
 
+const BRUSH_SIZE_STORAGE_KEY = 'fontmaker-brush-size'
+const FONT_NAME_STORAGE_KEY = 'fontmaker-font-name'
+const STEADY_HAND_STORAGE_KEY = 'fontmaker-steady-hand'
+const SMOOTH_INTENSITY_STORAGE_KEY = 'fontmaker-smooth-intensity'
+
+function loadBrushSize() {
+  try {
+    const stored = Number(localStorage.getItem(BRUSH_SIZE_STORAGE_KEY))
+    if (Number.isFinite(stored) && stored >= 4 && stored <= 32) return stored
+  } catch {}
+  return 14
+}
+
+function loadFontName() {
+  try {
+    const stored = localStorage.getItem(FONT_NAME_STORAGE_KEY)
+    if (typeof stored === 'string' && stored.trim() !== '') return stored
+  } catch {}
+  return 'My Handwriting'
+}
+
+function loadSteadyHand() {
+  try {
+    return localStorage.getItem(STEADY_HAND_STORAGE_KEY) === 'true'
+  } catch {}
+  return false
+}
+
+function loadSmoothIntensity() {
+  try {
+    const stored = Number(localStorage.getItem(SMOOTH_INTENSITY_STORAGE_KEY))
+    if (Number.isFinite(stored) && stored >= 1 && stored <= 100) return stored
+  } catch {}
+  return 50
+}
+
 function charStorageKey(char) {
   return `fontmaker-glyph-${char.charCodeAt(0)}`
 }
@@ -323,56 +359,71 @@ function buildGlyphPathCached(strokes, brushSize, sideBearing = 50) {
   return result
 }
 
-function buildGlyphPath(strokes, brushSize, sideBearing) {
-  const path = new Path()
+function seedGlyphPathCache(strokes, brushSize, sideBearing, contours) {
+  const result = pathFromContours(contours, sideBearing)
+  glyphPathCache.set(strokes, { brushSize, sideBearing, result })
+  return result
+}
+
+function computeGlyphContours(strokes, brushSize) {
   const hasContent = strokes.some(s => isOutlineStroke(s) ? s.contours.length > 0 : s.length > 0)
+  if (!hasContent) return []
 
-  if (hasContent) {
-    const mask = rasterizeStrokesToMask(strokes, brushSize)
-    const rawPolygons = traceMaskToPolygons(mask, TRACE_SIZE)
+  const mask = rasterizeStrokesToMask(strokes, brushSize)
+  const rawPolygons = traceMaskToPolygons(mask, TRACE_SIZE)
 
-    const contours = []
-    for (const poly of rawPolygons) {
-      const simplified = simplifyPolygon(poly, TRACE_SUPERSAMPLE * 1.5)
-      if (simplified.length < 3) continue
-      const area = signedArea(simplified)
-      if (Math.abs(area) < (TRACE_SUPERSAMPLE * TRACE_SUPERSAMPLE) * 2) continue
-      contours.push(simplified)
+  const contours = []
+  for (const poly of rawPolygons) {
+    const simplified = simplifyPolygon(poly, TRACE_SUPERSAMPLE * 1.5)
+    if (simplified.length < 3) continue
+    const area = signedArea(simplified)
+    if (Math.abs(area) < (TRACE_SUPERSAMPLE * TRACE_SUPERSAMPLE) * 2) continue
+    contours.push(simplified)
+  }
+
+  const depths = contours.map((poly, i) => {
+    let depth = 0
+    for (let j = 0; j < contours.length; j++) {
+      if (i === j) continue
+      if (pointInPolygon(poly[0], contours[j])) depth++
     }
+    return depth
+  })
 
-    const depths = contours.map((poly, i) => {
-      let depth = 0
-      for (let j = 0; j < contours.length; j++) {
-        if (i === j) continue
-        if (pointInPolygon(poly[0], contours[j])) depth++
-      }
-      return depth
+  const result = []
+  for (let i = 0; i < contours.length; i++) {
+    const poly = contours[i]
+    const isHole = depths[i] % 2 === 1
+
+    const fontPts = poly.map(pt => ({
+      x: Math.round((pt.x / TRACE_SUPERSAMPLE) * SCALE),
+      y: Math.round((CANVAS_SIZE - pt.y / TRACE_SUPERSAMPLE) * SCALE + DESCENDER),
+    }))
+
+    const dedup = fontPts.filter((p, k) => {
+      const prev = fontPts[(k - 1 + fontPts.length) % fontPts.length]
+      return p.x !== prev.x || p.y !== prev.y
     })
+    if (dedup.length < 3) continue
 
-    for (let i = 0; i < contours.length; i++) {
-      const poly = contours[i]
-      const isHole = depths[i] % 2 === 1
+    const area = signedArea(dedup)
+    const wantsNegative = isHole
+    const isNegative = area < 0
+    if (wantsNegative !== isNegative) dedup.reverse()
 
-      const fontPts = poly.map(pt => ({
-        x: Math.round((pt.x / TRACE_SUPERSAMPLE) * SCALE),
-        y: Math.round((CANVAS_SIZE - pt.y / TRACE_SUPERSAMPLE) * SCALE + DESCENDER),
-      }))
+    result.push(dedup)
+  }
 
-      const dedup = fontPts.filter((p, k) => {
-        const prev = fontPts[(k - 1 + fontPts.length) % fontPts.length]
-        return p.x !== prev.x || p.y !== prev.y
-      })
-      if (dedup.length < 3) continue
+  return result
+}
 
-      const area = signedArea(dedup)
-      const wantsNegative = isHole
-      const isNegative = area < 0
-      if (wantsNegative !== isNegative) dedup.reverse()
+function pathFromContours(contours, sideBearing) {
+  const path = new Path()
 
-      path.moveTo(dedup[0].x, dedup[0].y)
-      for (let k = 1; k < dedup.length; k++) path.lineTo(dedup[k].x, dedup[k].y)
-      path.close()
-    }
+  for (const dedup of contours) {
+    path.moveTo(dedup[0].x, dedup[0].y)
+    for (let k = 1; k < dedup.length; k++) path.lineTo(dedup[k].x, dedup[k].y)
+    path.close()
   }
 
   const box = path.getBoundingBox()
@@ -380,7 +431,7 @@ function buildGlyphPath(strokes, brushSize, sideBearing) {
 
   if (box.x1 !== box.x2) {
     const glyphWidth = box.x2 - box.x1
-    
+
     glyphAdvanceWidth = Math.round(glyphWidth + (sideBearing * 2))
 
     const currentCenter = (box.x1 + box.x2) / 2
@@ -395,6 +446,11 @@ function buildGlyphPath(strokes, brushSize, sideBearing) {
   }
 
   return { path, advanceWidth: glyphAdvanceWidth }
+}
+
+function buildGlyphPath(strokes, brushSize, sideBearing) {
+  const contours = computeGlyphContours(strokes, brushSize)
+  return pathFromContours(contours, sideBearing)
 }
 
 function smoothStroke(points, intensity) {
@@ -1024,20 +1080,24 @@ function FontPreview({ strokesRefs, brushSize, drawnChars, version }) {
       return
     }
 
-    const metrics = computeTextMetrics(strokesRefs, brushSize, PREVIEW_FONT_SIZE)
-    ctx.save()
-    ctx.translate(4, metrics.baselineOffset)
-    const layout = renderTextToCanvas(ctx, PREVIEW_SAMPLE, strokesRefs, brushSize, PREVIEW_FONT_SIZE, {
-      maxWidth: width - 8,
-      lineHeight: metrics.lineHeight,
-    })
-    ctx.restore()
+    const raf = window.requestAnimationFrame(() => {
+      const metrics = computeTextMetrics(strokesRefs, brushSize, PREVIEW_FONT_SIZE)
+      ctx.save()
+      ctx.translate(4, metrics.baselineOffset)
+      const layout = renderTextToCanvas(ctx, PREVIEW_SAMPLE, strokesRefs, brushSize, PREVIEW_FONT_SIZE, {
+        maxWidth: width - 8,
+        lineHeight: metrics.lineHeight,
+      })
+      ctx.restore()
 
-    const requiredHeight = metrics.baselineOffset
-      + (layout.lines.length - 1) * metrics.lineHeight
-      + metrics.descenderDepth
-      + 10
-    if (Math.abs(requiredHeight - height) > 1) setHeight(requiredHeight)
+      const requiredHeight = metrics.baselineOffset
+        + (layout.lines.length - 1) * metrics.lineHeight
+        + metrics.descenderDepth
+        + 10
+      if (Math.abs(requiredHeight - height) > 1) setHeight(requiredHeight)
+    })
+
+    return () => window.cancelAnimationFrame(raf)
   }, [strokesRefs, brushSize, drawnChars, version, height])
 
   return (
@@ -1069,20 +1129,24 @@ function TypeBox({ strokesRefs, brushSize, drawnChars, version }) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, width, drawHeight)
 
-    const metrics = computeTextMetrics(strokesRefs, brushSize, typeFontSize)
-    ctx.save()
-    ctx.translate(10, metrics.baselineOffset)
-    const layout = renderTextToCanvas(ctx, text || '', strokesRefs, brushSize, typeFontSize, {
-      maxWidth: width - 20,
-      lineHeight: metrics.lineHeight,
-    })
-    ctx.restore()
+    const raf = window.requestAnimationFrame(() => {
+      const metrics = computeTextMetrics(strokesRefs, brushSize, typeFontSize)
+      ctx.save()
+      ctx.translate(10, metrics.baselineOffset)
+      const layout = renderTextToCanvas(ctx, text || '', strokesRefs, brushSize, typeFontSize, {
+        maxWidth: width - 20,
+        lineHeight: metrics.lineHeight,
+      })
+      ctx.restore()
 
-    const requiredHeight = metrics.baselineOffset
-      + (layout.lines.length - 1) * metrics.lineHeight
-      + metrics.descenderDepth
-      + 12
-    if (Math.abs(requiredHeight - height) > 1) setHeight(requiredHeight)
+      const requiredHeight = metrics.baselineOffset
+        + (layout.lines.length - 1) * metrics.lineHeight
+        + metrics.descenderDepth
+        + 12
+      if (Math.abs(requiredHeight - height) > 1) setHeight(requiredHeight)
+    })
+
+    return () => window.cancelAnimationFrame(raf)
   }, [text, strokesRefs, brushSize, drawnChars, version, height])
 
   return (
@@ -1104,38 +1168,144 @@ function TypeBox({ strokesRefs, brushSize, drawnChars, version }) {
 
 export default function FontMaker() {
   const [guideFont, setGuideFont] = useState(loadGuideFont)
-  const [brushSize, setBrushSize] = useState(14)
-  const [fontName, setFontName] = useState('My Handwriting')
+  const [brushSize, setBrushSize] = useState(loadBrushSize)
+  const [fontName, setFontName] = useState(loadFontName)
   const [drawnChars, setDrawnChars] = useState(() => new Set())
   const [saveErrorChars, setSaveErrorChars] = useState(() => new Set())
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState(null)
   const [index, setIndex] = useState(0)
-  const [steadyHand, setSteadyHand] = useState(false)
-  const [smoothIntensity, setSmoothIntensity] = useState(50)
+  const [steadyHand, setSteadyHand] = useState(loadSteadyHand)
+  const [smoothIntensity, setSmoothIntensity] = useState(loadSmoothIntensity)
   const [resetVersion, setResetVersion] = useState(0)
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState(null)
+  const [bootLoading, setBootLoading] = useState(true)
+  const [bootProgress, setBootProgress] = useState(0)
   const importInputRef = useRef(null)
   const importModeRef = useRef('current')
   const strokesRefs = useRef({})
+  const brushSizeRef = useRef(brushSize)
 
   useEffect(() => {
-    const drawn = new Set()
-    for (const char of ALL_CHARS) {
-      const strokes = loadStroke(char)
-      strokesRefs.current[char] = strokes
-      if (strokes.length > 0) drawn.add(char)
+    let cancelled = false
+    let worker = null
+
+    const entries = ALL_CHARS.map(char => ({
+      char,
+      raw: localStorage.getItem(charStorageKey(char)),
+    }))
+
+    const finish = (drawn) => {
+      if (cancelled) return
+      setDrawnChars(drawn)
+      setResetVersion(v => v + 1)
+      setBootLoading(false)
     }
-    setDrawnChars(new Set(drawn))
-    setResetVersion(v => v + 1)
+
+    const applyResults = (results) => {
+      const drawn = new Set()
+      const corruptChars = []
+      for (const { char, strokes, contours, corrupt } of results) {
+        strokesRefs.current[char] = strokes
+        if (strokes.length > 0) {
+          drawn.add(char)
+          seedGlyphPathCache(strokes, brushSizeRef.current, 50, contours)
+        }
+        if (corrupt) corruptChars.push(char)
+      }
+      for (const char of corruptChars) {
+        console.error(`Corrupt glyph data for "${char}", clearing entry.`)
+        localStorage.removeItem(charStorageKey(char))
+      }
+      finish(drawn)
+    }
+
+    const runMainThreadFallback = () => {
+      const drawn = new Set()
+      for (const { char, raw } of entries) {
+        const strokes = loadStroke(char)
+        strokesRefs.current[char] = strokes
+        if (strokes.length > 0) drawn.add(char)
+      }
+      setBootProgress(100)
+      finish(drawn)
+    }
+
+    if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined') {
+      runMainThreadFallback()
+      return () => { cancelled = true }
+    }
+
+    try {
+      worker = new Worker(new URL('/glyphWorker.js', import.meta.url))
+    } catch {
+      runMainThreadFallback()
+      return () => { cancelled = true }
+    }
+
+    worker.onmessage = (e) => {
+      if (cancelled) return
+      const { type, done, total, results } = e.data
+      if (type === 'progress') {
+        setBootProgress(Math.round((done / total) * 100))
+      } else if (type === 'complete') {
+        applyResults(results)
+      }
+    }
+
+    worker.onerror = () => {
+      if (cancelled) return
+      runMainThreadFallback()
+    }
+
+    worker.postMessage({ type: 'process', jobId: 1, entries, brushSize: brushSizeRef.current })
+
+    return () => {
+      cancelled = true
+      if (worker) worker.terminate()
+    }
   }, [])
+
+  useEffect(() => {
+    if (!bootLoading) return
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prevOverflow
+    }
+  }, [bootLoading])
 
   useEffect(() => {
     try {
       localStorage.setItem(GUIDE_FONT_STORAGE_KEY, guideFont)
     } catch {}
   }, [guideFont])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(BRUSH_SIZE_STORAGE_KEY, String(brushSize))
+    } catch {}
+    brushSizeRef.current = brushSize
+  }, [brushSize])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FONT_NAME_STORAGE_KEY, fontName)
+    } catch {}
+  }, [fontName])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STEADY_HAND_STORAGE_KEY, String(steadyHand))
+    } catch {}
+  }, [steadyHand])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SMOOTH_INTENSITY_STORAGE_KEY, String(smoothIntensity))
+    } catch {}
+  }, [smoothIntensity])
 
   const handleCommit = useCallback((char, strokes, saveOk = true) => {
     strokesRefs.current[char] = strokes
@@ -1340,6 +1510,21 @@ export default function FontMaker() {
       </div>
 
       <main className="fm-main">
+        {bootLoading && (
+          <div className="fm-boot-overlay" role="status" aria-live="polite">
+            <div className="fm-boot-overlay-inner">
+              <div className="fm-boot-overlay-label">Hold on! We're loading here!</div>
+              <div className="fm-boot-progress-track">
+                <div
+                  className="fm-boot-progress-fill"
+                  style={{ width: `${bootProgress}%` }}
+                />
+              </div>
+              <div className="fm-boot-progress-pct">{bootProgress}%</div>
+            </div>
+          </div>
+        )}
+
         <div className="fm-intro">
           Draw each character by hand, using the guide letter behind it for reference.
           Use the arrows to move between characters, Ctrl+Z / Ctrl+Y to undo and redo.

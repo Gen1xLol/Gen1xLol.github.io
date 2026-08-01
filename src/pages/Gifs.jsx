@@ -155,7 +155,7 @@ function Pagination({ page, totalPages, onPage }) {
                 title="Click to jump to a page"
                 onClick={() => { setJumpingSlot(p); setJumpValue('') }}
               >
-                …
+                ...
               </button>
             )
         }
