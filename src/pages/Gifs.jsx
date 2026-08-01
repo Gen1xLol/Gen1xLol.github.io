@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, ExternalLink } from 'lucide-react'
 
 const PAGE_SIZE = 100
 
@@ -128,7 +129,7 @@ function Pagination({ page, totalPages, onPage }) {
         onClick={() => onPage(page - 1)}
         disabled={page === 1}
       >
-        ←
+        <ArrowLeft size={16} />
       </button>
       {getPages().map((p, i) => {
         if (p === 'ellipsis-left' || p === 'ellipsis-right') {
@@ -173,7 +174,7 @@ function Pagination({ page, totalPages, onPage }) {
         onClick={() => onPage(page + 1)}
         disabled={page === totalPages}
       >
-        →
+        <ArrowRight size={16} />
       </button>
     </div>
   )
@@ -335,7 +336,7 @@ export default function Gifs() {
     <>
       <div className="gif-page-header">
         <div className="gif-page-header-inner">
-          <Link to="/" className="gif-back-link">← back</Link>
+          <Link to="/" className="gif-back-link"><ArrowLeft size={16} /> back</Link>
           <div className="gif-page-title-group">
             <span className="gif-page-title">88x31 Gallery</span>
           </div>
@@ -359,7 +360,7 @@ export default function Gifs() {
               className="gif-browser-source-link"
               onClick={e => e.stopPropagation()}
             >
-              visit source ↗
+              visit source <ExternalLink size={13} />
             </a>
           </summary>
           <GifBrowser
@@ -379,7 +380,7 @@ export default function Gifs() {
               className="gif-browser-source-link"
               onClick={e => e.stopPropagation()}
             >
-              visit source ↗
+              visit source <ExternalLink size={13} />
             </a>
           </summary>
           <GifBrowser

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 
 const qas = [
   {
@@ -63,7 +64,7 @@ export default function QA() {
   return (
     <main>
       <h1>Frequently Asked Questions</h1>
-      <Link to="/" className="back-link">← go back</Link>
+      <Link to="/" className="back-link"><ArrowLeft size={16} /> go back</Link>
 
       <div className="qa-container">
         {qas.map((item, i) => (

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Font, Glyph, Path, parse as parseFont } from 'opentype.js'
+import { ArrowLeft, ArrowRight, Undo2, Redo2, X, Space, TriangleAlert } from 'lucide-react'
 
 const CANVAS_SIZE = 480
 const UNITS_PER_EM = 1000
@@ -9,8 +10,8 @@ const DESCENDER = -200
 const SCALE = UNITS_PER_EM / CANVAS_SIZE
 
 const CHAR_GROUPS = [
-  { label: 'Uppercase', chars: 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZÁÉÍÓÚ'.split('') },
-  { label: 'Lowercase', chars: 'abcdefghijklmnñopqrstuvwxyzáéíóú'.split('') },
+  { label: 'Uppercase', chars: 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZÁÉÍÓÚÜ'.split('') },
+  { label: 'Lowercase', chars: 'abcdefghijklmnñopqrstuvwxyzáéíóúü'.split('') },
   { label: 'Numbers', chars: '0123456789'.split('') },
   { label: 'Punctuation', chars: '.,¡!¿?\'"-—_:;()[]{}@#$%&*+=/\\<>~^|'.split('') },
 ]
@@ -29,19 +30,41 @@ function charStorageKey(char) {
 }
 
 function loadStroke(char) {
+  const key = charStorageKey(char)
+  const raw = localStorage.getItem(key)
+  if (!raw) return []
+  let parsed
   try {
-    const raw = localStorage.getItem(charStorageKey(char))
-    if (!raw) return []
-    return JSON.parse(raw)
-  } catch {
+    parsed = JSON.parse(raw)
+  } catch (err) {
+    console.error(`Corrupt glyph data for "${char}", clearing entry.`, err)
+    localStorage.removeItem(key)
     return []
   }
+  if (!Array.isArray(parsed)) {
+    console.error(`Unexpected glyph data shape for "${char}", clearing entry.`)
+    localStorage.removeItem(key)
+    return []
+  }
+  return parsed
 }
 
 function saveStroke(char, strokes) {
+  const key = charStorageKey(char)
+  let serialized
   try {
-    localStorage.setItem(charStorageKey(char), JSON.stringify(strokes))
-  } catch {}
+    serialized = JSON.stringify(strokes)
+  } catch (err) {
+    console.error(`Failed to serialize glyph "${char}".`, err)
+    return { ok: false, error: err }
+  }
+  try {
+    localStorage.setItem(key, serialized)
+    return { ok: true }
+  } catch (err) {
+    console.error(`Failed to save glyph "${char}" to localStorage.`, err)
+    return { ok: false, error: err }
+  }
 }
 
 function clearStroke(char) {
@@ -825,8 +848,8 @@ function GlyphEditor({ char, guideFont, brushSize, initialStrokes, onCommit, ste
     trimmed.push(strokes)
     historyRef.current = trimmed
     historyIndexRef.current = trimmed.length - 1
-    saveStroke(char, strokes)
-    onCommit(char, strokes)
+    const result = saveStroke(char, strokes)
+    onCommit(char, strokes, result.ok)
     redraw()
   }
 
@@ -834,8 +857,8 @@ function GlyphEditor({ char, guideFont, brushSize, initialStrokes, onCommit, ste
     if (historyIndexRef.current <= 0) return
     historyIndexRef.current -= 1
     const strokes = historyRef.current[historyIndexRef.current]
-    saveStroke(char, strokes)
-    onCommit(char, strokes)
+    const result = saveStroke(char, strokes)
+    onCommit(char, strokes, result.ok)
     redraw()
   }, [char, redraw])
 
@@ -843,8 +866,8 @@ function GlyphEditor({ char, guideFont, brushSize, initialStrokes, onCommit, ste
     if (historyIndexRef.current >= historyRef.current.length - 1) return
     historyIndexRef.current += 1
     const strokes = historyRef.current[historyIndexRef.current]
-    saveStroke(char, strokes)
-    onCommit(char, strokes)
+    const result = saveStroke(char, strokes)
+    onCommit(char, strokes, result.ok)
     redraw()
   }, [char, redraw])
 
@@ -936,9 +959,9 @@ function GlyphEditor({ char, guideFont, brushSize, initialStrokes, onCommit, ste
         onTouchEnd={handleEnd}
       />
       <div className="fm-editor-actions">
-        <button onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">↩ Undo</button>
-        <button onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Y)">↪ Redo</button>
-        <button onClick={handleClear} className="fm-editor-clear">✕ Clear</button>
+        <button onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)"><Undo2 size={16} /> Undo</button>
+        <button onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Y)"><Redo2 size={16} /> Redo</button>
+        <button onClick={handleClear} className="fm-editor-clear"><X size={16} /> Clear</button>
       </div>
     </div>
   )
@@ -1054,6 +1077,7 @@ export default function FontMaker() {
   const [brushSize, setBrushSize] = useState(14)
   const [fontName, setFontName] = useState('My Handwriting')
   const [drawnChars, setDrawnChars] = useState(() => new Set())
+  const [saveErrorChars, setSaveErrorChars] = useState(() => new Set())
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState(null)
   const [index, setIndex] = useState(0)
@@ -1077,13 +1101,19 @@ export default function FontMaker() {
     setResetVersion(v => v + 1)
   }, [])
 
-  const handleCommit = useCallback((char, strokes) => {
+  const handleCommit = useCallback((char, strokes, saveOk = true) => {
     strokesRefs.current[char] = strokes
     setDrawnChars(prev => {
       const isDrawn = strokes.length > 0
       const next = new Set(prev)
       if (isDrawn) next.add(char)
       else next.delete(char)
+      return next
+    })
+    setSaveErrorChars(prev => {
+      const next = new Set(prev)
+      if (saveOk) next.delete(char)
+      else next.add(char)
       return next
     })
   }, [])
@@ -1138,10 +1168,12 @@ export default function FontMaker() {
         return
       }
 
+      const failedChars = []
       for (const char of importedChars) {
         const strokes = [imported[char]]
         strokesRefs.current[char] = strokes
-        saveStroke(char, strokes)
+        const result = saveStroke(char, strokes)
+        if (!result.ok) failedChars.push(char)
       }
       setDrawnChars(prev => {
         const next = new Set(prev)
@@ -1149,6 +1181,12 @@ export default function FontMaker() {
         return next
       })
       setResetVersion(v => v + 1)
+      if (failedChars.length > 0) {
+        setImportError(
+          `Imported ${importedChars.length - failedChars.length} of ${importedChars.length} glyphs, but ` +
+          `${failedChars.length} couldn't be saved for some reason. They'll be lost on reload unless you free up space and redraw or reimport them.`
+        )
+      }
     } catch (err) {
       setImportError(err.message || 'Could not read that font file.')
     } finally {
@@ -1257,7 +1295,7 @@ export default function FontMaker() {
     <>
       <div className="fm-page-header">
         <div className="fm-page-header-inner">
-          <Link to="/" className="fm-back-link">← back</Link>
+          <Link to="/" className="fm-back-link"><ArrowLeft size={16} /> back</Link>
           <div className="fm-page-title-group">
             <span className="fm-page-title">Draw-A-Font</span>
             <span className="fm-page-subtitle">{progress} / {ALL_CHARS.length} drawn</span>
@@ -1272,6 +1310,17 @@ export default function FontMaker() {
           Turn on Steady Hand to smooth out each stroke after you draw it. Your progress
           saves automatically in this browser.
         </div>
+
+        {saveErrorChars.size > 0 && (
+          <div className="fm-save-error-banner">
+            <TriangleAlert size={18} />
+            <span>
+              {saveErrorChars.size === 1
+                ? `"${[...saveErrorChars][0] === ' ' ? 'space' : [...saveErrorChars][0]}" couldn't be saved to this browser's storage (likely full). Export soon or free up space, or this glyph will be lost on reload.`
+                : `${saveErrorChars.size} glyphs couldn't be saved to this browser's storage (likely full). Export soon or free up space, or they'll be lost on reload.`}
+            </span>
+          </div>
+        )}
 
         <div className="fm-toolbar">
           <div className="fm-toolbar-group">
@@ -1391,12 +1440,12 @@ export default function FontMaker() {
         </div>
 
         <div className="fm-nav-bar">
-          <button className="fm-nav-btn" onClick={goPrev} disabled={index === 0}>← Back</button>
+          <button className="fm-nav-btn" onClick={goPrev} disabled={index === 0}><ArrowLeft size={16} /> Back</button>
           <div className="fm-nav-info">
             <span className="fm-nav-group">{currentGroupInfo.label}</span>
             <span className="fm-nav-pos">{currentGroupInfo.posInGroup} / {currentGroupInfo.groupSize}</span>
           </div>
-          <button className="fm-nav-btn" onClick={goNext} disabled={index === ALL_CHARS.length - 1}>Next →</button>
+          <button className="fm-nav-btn" onClick={goNext} disabled={index === ALL_CHARS.length - 1}>Next <ArrowRight size={16} /></button>
         </div>
 
         <div className="fm-current-char">
@@ -1435,7 +1484,7 @@ export default function FontMaker() {
               className={`fm-strip-item${i === index ? ' fm-strip-item--active' : ''}${drawnChars.has(char) ? ' fm-strip-item--done' : ''}`}
               onClick={() => setIndex(i)}
             >
-              {char === ' ' ? '␣' : char}
+              {char === ' ' ? <Space size={14} /> : char}
             </button>
           ))}
         </div>
