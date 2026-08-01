@@ -1258,18 +1258,36 @@ const PREVIEW_FONT_SIZE = 46
 function FontPreview({ strokesRefs, brushSize, drawnChars, version }) {
   const canvasRef = useRef(null)
   const [height, setHeight] = useState(PREVIEW_HEIGHT)
+  const [width, setWidth] = useState(0)
+  const [dprTick, setDprTick] = useState(0)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const update = () => setWidth(canvas.clientWidth)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(canvas)
+    const mq = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`)
+    const handleDpiChange = () => setDprTick(t => t + 1)
+    mq.addEventListener?.('change', handleDpiChange)
+    return () => {
+      ro.disconnect()
+      mq.removeEventListener?.('change', handleDpiChange)
+    }
+  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     const dpr = window.devicePixelRatio || 1
-    const width = canvas.clientWidth
+    const drawWidth = width || canvas.clientWidth
     const drawHeight = height
-    canvas.width = width * dpr
-    canvas.height = drawHeight * dpr
+    canvas.width = Math.round(drawWidth * dpr)
+    canvas.height = Math.round(drawHeight * dpr)
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    ctx.clearRect(0, 0, width, drawHeight)
+    ctx.clearRect(0, 0, drawWidth, drawHeight)
 
     if (drawnChars.size === 0) {
       ctx.fillStyle = '#6b6080'
@@ -1283,7 +1301,7 @@ function FontPreview({ strokesRefs, brushSize, drawnChars, version }) {
       ctx.save()
       ctx.translate(4, metrics.baselineOffset)
       const layout = renderTextToCanvas(ctx, PREVIEW_SAMPLE, strokesRefs, brushSize, PREVIEW_FONT_SIZE, {
-        maxWidth: width - 8,
+        maxWidth: drawWidth - 8,
         lineHeight: metrics.lineHeight,
       })
       ctx.restore()
@@ -1296,7 +1314,7 @@ function FontPreview({ strokesRefs, brushSize, drawnChars, version }) {
     })
 
     return () => window.cancelAnimationFrame(raf)
-  }, [strokesRefs, brushSize, drawnChars, version, height])
+  }, [strokesRefs, brushSize, drawnChars, version, height, width, dprTick])
 
   return (
     <div className="fm-preview">
@@ -1312,6 +1330,24 @@ function TypeBox({ strokesRefs, brushSize, drawnChars, version }) {
   const wrapRef = useRef(null)
   const typeFontSize = 40
   const [height, setHeight] = useState(120)
+  const [width, setWidth] = useState(0)
+  const [dprTick, setDprTick] = useState(0)
+
+  useEffect(() => {
+    const wrap = wrapRef.current
+    if (!wrap) return
+    const update = () => setWidth(wrap.clientWidth)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(wrap)
+    const mq = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`)
+    const handleDpiChange = () => setDprTick(t => t + 1)
+    mq.addEventListener?.('change', handleDpiChange)
+    return () => {
+      ro.disconnect()
+      mq.removeEventListener?.('change', handleDpiChange)
+    }
+  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -1319,20 +1355,20 @@ function TypeBox({ strokesRefs, brushSize, drawnChars, version }) {
     if (!canvas || !wrap) return
     const ctx = canvas.getContext('2d')
     const dpr = window.devicePixelRatio || 1
-    const width = wrap.clientWidth
+    const drawWidth = width || wrap.clientWidth
     const drawHeight = height
-    canvas.width = width * dpr
-    canvas.height = drawHeight * dpr
+    canvas.width = Math.round(drawWidth * dpr)
+    canvas.height = Math.round(drawHeight * dpr)
     canvas.style.height = `${drawHeight}px`
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    ctx.clearRect(0, 0, width, drawHeight)
+    ctx.clearRect(0, 0, drawWidth, drawHeight)
 
     const raf = window.requestAnimationFrame(() => {
       const metrics = computeTextMetrics(strokesRefs, brushSize, typeFontSize)
       ctx.save()
       ctx.translate(10, metrics.baselineOffset)
       const layout = renderTextToCanvas(ctx, text || '', strokesRefs, brushSize, typeFontSize, {
-        maxWidth: width - 20,
+        maxWidth: drawWidth - 20,
         lineHeight: metrics.lineHeight,
       })
       ctx.restore()
@@ -1345,7 +1381,7 @@ function TypeBox({ strokesRefs, brushSize, drawnChars, version }) {
     })
 
     return () => window.cancelAnimationFrame(raf)
-  }, [text, strokesRefs, brushSize, drawnChars, version, height])
+  }, [text, strokesRefs, brushSize, drawnChars, version, height, width, dprTick])
 
   return (
     <div className="fm-typebox">
