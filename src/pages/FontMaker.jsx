@@ -786,7 +786,174 @@ function getKerningAdjustment(kerningTable, kerningStrength, l, r) {
   if (!kerningTable) return 0
   const raw = kerningTable[`${l}|${r}`]
   if (!raw) return 0
-  return Math.round(raw * (kerningStrength / 100))
+  const effectiveStrength = kerningStrength === 0 ? 100 : kerningStrength
+  return Math.round(raw * (effectiveStrength / 100))
+}
+
+function pad4(n) {
+  return (n + 3) & ~3
+}
+
+function computeTableChecksum(bytes) {
+  const padded = pad4(bytes.byteLength)
+  const paddedBytes = new Uint8Array(padded)
+  paddedBytes.set(bytes)
+  const view = new DataView(paddedBytes.buffer)
+  let sum = 0
+  for (let i = 0; i < padded / 4; i++) {
+    sum = (sum + view.getUint32(i * 4)) >>> 0
+  }
+  return sum
+}
+
+function makeKernTableBuffer(kerningPairs) {
+  const entries = Object.keys(kerningPairs)
+    .map(key => {
+      const [l, r] = key.split(',').map(Number)
+      return { left: l, right: r, value: kerningPairs[key] }
+    })
+    .filter(e => e.value !== 0)
+    .sort((a, b) => (a.left - b.left) || (a.right - b.right))
+
+  if (entries.length === 0) return null
+
+  const nPairs = entries.length
+  let searchRange = 1
+  let entrySelector = 0
+  while (searchRange * 2 <= nPairs) {
+    searchRange *= 2
+    entrySelector++
+  }
+  searchRange *= 6
+  const rangeShift = nPairs * 6 - searchRange
+
+  const subtableBodySize = 8 + nPairs * 6
+  const subtableSize = 6 + subtableBodySize
+  const totalSize = 4 + subtableSize
+
+  const buf = new ArrayBuffer(totalSize)
+  const view = new DataView(buf)
+  let o = 0
+  view.setUint16(o, 0); o += 2
+  view.setUint16(o, 1); o += 2
+
+  view.setUint16(o, 0); o += 2
+  view.setUint16(o, subtableSize); o += 2
+  view.setUint16(o, 0x0001); o += 2
+
+  view.setUint16(o, nPairs); o += 2
+  view.setUint16(o, searchRange); o += 2
+  view.setUint16(o, entrySelector); o += 2
+  view.setUint16(o, rangeShift); o += 2
+
+  for (const e of entries) {
+    view.setUint16(o, e.left); o += 2
+    view.setUint16(o, e.right); o += 2
+    view.setInt16(o, e.value); o += 2
+  }
+
+  return buf
+}
+
+function injectKernTable(arrayBuffer, kerningPairs) {
+  const kernData = makeKernTableBuffer(kerningPairs)
+  if (!kernData) return arrayBuffer
+
+  const src = new DataView(arrayBuffer)
+  const sfntVersion = src.getUint32(0)
+  const numTables = src.getUint16(4)
+
+  const tables = []
+  for (let i = 0; i < numTables; i++) {
+    const rec = 12 + i * 16
+    const tag = String.fromCharCode(
+      src.getUint8(rec), src.getUint8(rec + 1), src.getUint8(rec + 2), src.getUint8(rec + 3)
+    )
+    const offset = src.getUint32(rec + 8)
+    const length = src.getUint32(rec + 12)
+    tables.push({ tag, offset, length, data: arrayBuffer.slice(offset, offset + length) })
+  }
+
+  tables.push({
+    tag: 'kern',
+    length: kernData.byteLength,
+    data: kernData,
+    checksum: computeTableChecksum(new Uint8Array(kernData)),
+  })
+
+  for (const t of tables) {
+    if (t.checksum === undefined) {
+      t.checksum = computeTableChecksum(new Uint8Array(t.data))
+    }
+  }
+
+  tables.sort((a, b) => (a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0))
+
+  const newNumTables = tables.length
+  let searchRange = 1
+  let entrySelector = 0
+  while (searchRange * 2 <= newNumTables) {
+    searchRange *= 2
+    entrySelector++
+  }
+  searchRange *= 16
+  const rangeShift = newNumTables * 16 - searchRange
+
+  const headerSize = 12 + newNumTables * 16
+  let cursor = headerSize
+  const layout = tables.map(t => {
+    const start = cursor
+    cursor += pad4(t.length)
+    return { ...t, newOffset: start }
+  })
+
+  const totalSize = cursor
+  const out = new ArrayBuffer(totalSize)
+  const outView = new DataView(out)
+  const outBytes = new Uint8Array(out)
+
+  outView.setUint32(0, sfntVersion)
+  outView.setUint16(4, newNumTables)
+  outView.setUint16(6, searchRange)
+  outView.setUint16(8, entrySelector)
+  outView.setUint16(10, rangeShift)
+
+  let headOffsetInFile = -1
+  let headRecordIndex = -1
+
+  layout.forEach((t, i) => {
+    const rec = 12 + i * 16
+    for (let c = 0; c < 4; c++) outView.setUint8(rec + c, t.tag.charCodeAt(c))
+    outView.setUint32(rec + 4, t.checksum)
+    outView.setUint32(rec + 8, t.newOffset)
+    outView.setUint32(rec + 12, t.length)
+
+    outBytes.set(new Uint8Array(t.data), t.newOffset)
+    if (t.tag === 'head') {
+      headOffsetInFile = t.newOffset
+      headRecordIndex = i
+    }
+  })
+
+  if (headOffsetInFile >= 0) {
+    outView.setUint32(headOffsetInFile + 8, 0)
+
+    let fullChecksum = 0
+    const fullView = new DataView(out, 0, pad4(totalSize))
+    const fullLen = pad4(totalSize) / 4
+    for (let i = 0; i < fullLen; i++) {
+      fullChecksum = (fullChecksum + fullView.getUint32(i * 4)) >>> 0
+    }
+    const checksumAdjustment = (0xB1B0AFBA - fullChecksum) >>> 0
+    outView.setUint32(headOffsetInFile + 8, checksumAdjustment)
+
+    const headLength = layout[headRecordIndex].length
+    const headBytes = new Uint8Array(out, headOffsetInFile, headLength)
+    const headRec = 12 + headRecordIndex * 16
+    outView.setUint32(headRec + 4, computeTableChecksum(headBytes))
+  }
+
+  return out
 }
 
 function measureGlyphVerticalExtent(strokes, brushSize) {
@@ -2013,15 +2180,16 @@ export default function FontMaker() {
     }
     font.kerningPairs = kerningPairs
 
-    return font
+    return { font, kerningPairs }
   }
 
   const handleExport = (format) => {
     setExportError(null)
     setExporting(true)
     try {
-      const font = buildFont()
-      const arrayBuffer = font.toArrayBuffer()
+      const { font, kerningPairs } = buildFont()
+      const rawArrayBuffer = font.toArrayBuffer()
+      const arrayBuffer = injectKernTable(rawArrayBuffer, kerningPairs)
       const mime = format === 'otf' ? 'font/otf' : 'font/ttf'
       const blob = new Blob([arrayBuffer], { type: mime })
       const url = window.URL.createObjectURL(blob)
