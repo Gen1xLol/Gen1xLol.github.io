@@ -131,7 +131,6 @@ main {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.14em;
-  text-transform: uppercase;
   color: var(--soft);
   margin-bottom: 18px;
   padding-bottom: 10px;
@@ -801,7 +800,6 @@ details[open] > .gif-browser-summary::before {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
   color: var(--soft);
   padding: 16px 0;
   cursor: pointer;
@@ -1006,7 +1004,6 @@ details[open] .gif-about-summary::before {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--soft);
   line-height: 15px;
 }
@@ -1364,7 +1361,6 @@ details[open] .gif-about-summary::before {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--soft);
 }
 
@@ -1453,7 +1449,6 @@ details[open] .gif-about-summary::before {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--soft);
   margin-bottom: 10px;
 }
@@ -1553,7 +1548,6 @@ details[open] .gif-about-summary::before {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
   color: var(--soft);
   margin-bottom: 14px;
 }
