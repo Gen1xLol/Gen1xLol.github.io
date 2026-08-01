@@ -1708,19 +1708,80 @@ details[open] .gif-about-summary::before {
   margin-bottom: 12px;
 }
 
+@media (max-width: 760px) {
+  .fm-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 16px;
+    padding: 14px;
+  }
+  .fm-toolbar-group--import {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+  .fm-toolbar-group--row3 {
+    grid-row: auto;
+  }
+  .fm-clear-all-btn {
+    grid-column: auto;
+    grid-row: auto;
+    justify-self: end;
+  }
+  .fm-import-btn-row {
+    flex-wrap: wrap;
+  }
+}
+
 @media (max-width: 520px) {
   .fm-toolbar {
     grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 14px;
   }
-  .fm-toolbar-group--import {
-    grid-column: 1;
-  }
+  .fm-toolbar-group--import,
   .fm-toolbar-group--row3 {
     grid-column: 1;
+    grid-row: auto;
   }
   .fm-clear-all-btn {
     grid-column: 1;
+    grid-row: auto;
     justify-self: stretch;
+  }
+  .fm-select,
+  .fm-text-input {
+    font-size: 16px;
+    padding: 10px 12px;
+  }
+  .fm-import-btn,
+  .fm-clear-all-btn {
+    padding: 10px 12px;
+  }
+  .fm-import-btn-row {
+    width: 100%;
+  }
+  .fm-import-btn-row .fm-import-btn {
+    flex: 1 1 140px;
+    justify-content: center;
+  }
+  .fm-toolbar-group--row3 > .fm-import-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .fm-range {
+    height: 24px;
+    min-width: 0;
+  }
+  .fm-range::-webkit-slider-thumb {
+    width: 22px;
+    height: 22px;
+    margin-top: -8px;
+  }
+  .fm-range::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+  }
+  .fm-import-error {
+    max-width: 100%;
   }
   .fm-text-input {
     width: 100%;
