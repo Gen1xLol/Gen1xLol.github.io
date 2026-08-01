@@ -474,44 +474,66 @@ function buildGlyphPath(strokes, brushSize, sideBearing) {
   return pathFromContours(contours, sideBearing)
 }
 
+function resampleStroke(points, spacing) {
+  if (points.length < 2) return points
+  const result = [{ x: points[0].x, y: points[0].y }]
+  let carry = 0
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1]
+    const b = points[i]
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const segLen = Math.hypot(dx, dy)
+    if (segLen === 0) continue
+    let remaining = segLen
+    while (remaining + carry >= spacing) {
+      const t = 1 - (remaining + carry - spacing) / segLen
+      result.push({ x: a.x + dx * t, y: a.y + dy * t })
+      remaining -= spacing - carry
+      carry = 0
+    }
+    carry += remaining
+  }
+  const last = points[points.length - 1]
+  const tail = Math.hypot(result[result.length - 1].x - last.x, result[result.length - 1].y - last.y)
+  if (tail > spacing * 0.25) result.push({ x: last.x, y: last.y })
+  return result
+}
+
 function smoothStroke(points, intensity) {
   if (intensity <= 0 || points.length < 3) return points
 
-  const passes = Math.max(1, Math.round((intensity / 100) * 6))
-  let pts = points
+  const resampled = resampleStroke(points, 5)
+  if (resampled.length < 3) return points
 
+  const tolerance = 0.25 + (intensity / 100) * 2.5
+  const simplified = douglasPeucker(resampled, tolerance)
+  if (simplified.length < 3) return points
+
+  const radius = Math.max(1, Math.round((intensity / 100) * 4))
+  const passes = Math.max(1, Math.round((intensity / 100) * 3))
+
+  let pts = simplified
   for (let pass = 0; pass < passes; pass++) {
-    const next = [pts[0]]
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[i]
-      const p1 = pts[i + 1]
-      next.push({
-        x: p0.x * 0.75 + p1.x * 0.25,
-        y: p0.y * 0.75 + p1.y * 0.25,
-      })
-      next.push({
-        x: p0.x * 0.25 + p1.x * 0.75,
-        y: p0.y * 0.25 + p1.y * 0.75,
-      })
-    }
-    next.push(pts[pts.length - 1])
+    const next = pts.map((p, i) => {
+      let sx = 0
+      let sy = 0
+      let count = 0
+      const lo = Math.max(0, i - radius)
+      const hi = Math.min(pts.length - 1, i + radius)
+      for (let j = lo; j <= hi; j++) {
+        sx += pts[j].x
+        sy += pts[j].y
+        count++
+      }
+      return { x: sx / count, y: sy / count }
+    })
     pts = next
   }
 
-  const smoothWindow = Math.max(1, Math.round((intensity / 100) * 4))
-  const smoothed = pts.map((p, i) => {
-    let sx = 0, sy = 0, count = 0
-    for (let j = Math.max(0, i - smoothWindow); j <= Math.min(pts.length - 1, i + smoothWindow); j++) {
-      sx += pts[j].x
-      sy += pts[j].y
-      count++
-    }
-    return { x: sx / count, y: sy / count }
-  })
-  smoothed[0] = points[0]
-  smoothed[smoothed.length - 1] = points[points.length - 1]
-
-  return smoothed
+  pts[0] = { x: points[0].x, y: points[0].y }
+  pts[pts.length - 1] = { x: points[points.length - 1].x, y: points[points.length - 1].y }
+  return pts
 }
 
 function drawGlyph(ctx, char, guideFont, brushSize, strokes, guideOpacity = 16) {
@@ -1127,6 +1149,13 @@ function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialStrokes,
     currentStrokeRef.current.push(pos)
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
+
+    if (steadyHand) {
+      const preview = [...currentStrokes(), smoothStroke(currentStrokeRef.current, smoothIntensity)]
+      drawGlyph(ctx, char, guideFont, brushSize, preview, guideOpacity)
+      return
+    }
+
     ctx.strokeStyle = '#e9e4f0'
     ctx.lineWidth = brushSize
     ctx.lineCap = 'round'
