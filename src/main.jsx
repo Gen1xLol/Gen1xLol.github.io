@@ -4,6 +4,7 @@ import { HashRouter, Routes, Route } from 'react-router-dom'
 import Home from './pages/Home.jsx'
 import QA from './pages/QA.jsx'
 import Gifs from './pages/Gifs.jsx'
+import FontMaker from './pages/FontMaker.jsx'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -13,6 +14,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/" element={<Home />} />
         <Route path="/q&a" element={<QA />} />
         <Route path="/88x31" element={<Gifs />} />
+        <Route path="/fontmaker" element={<FontMaker />} />
       </Routes>
     </HashRouter>
   </React.StrictMode>,

@@ -48,6 +48,8 @@ export default function Home() {
             <a href="#about" onClick={(e) => scrollToSection(e, 'about')}>about</a>
             <a href="#projects" onClick={(e) => scrollToSection(e, 'projects')}>projects</a>
             <Link to="/88x31">88x31</Link>
+			<a href="https://gen1xlol.github.io/Jarona-TTS" target="_blank" rel="noopener">Jarona TTS</a>
+			<Link to="/fontmaker">Draw-A-Font</Link>
           </nav>
         </div>
       </header>
@@ -102,6 +104,8 @@ export default function Home() {
             <Link to="/88x31">Browse my 88x31 GIF collection!</Link>
 			<br />
             <a href="https://gen1xlol.github.io/Jarona-TTS" target="_blank" rel="noopener">Try Jarona TTS!</a> (slight DELTARUNE spoilers...)
+			<br />
+            <Link to="/fontmaker">Draw your own font in Draw-A-Font!</Link>
           </p>
         </div>
 
