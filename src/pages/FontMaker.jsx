@@ -18,12 +18,42 @@ const CHAR_GROUPS = [
 
 const ALL_CHARS = CHAR_GROUPS.flatMap(g => g.chars)
 
+const GUIDE_FONT_STORAGE_KEY = 'fontmaker-guide-font'
+
 const GUIDE_FONTS = [
-  { label: 'Sans', value: 'sans-serif' },
-  { label: 'Serif', value: 'serif' },
-  { label: 'Monospace', value: 'monospace' },
-  { label: 'Cursive', value: 'cursive' },
+  { label: 'Arial', value: 'Arial, sans-serif' },
+  { label: 'Helvetica', value: 'Helvetica, Arial, sans-serif' },
+  { label: 'Verdana', value: 'Verdana, sans-serif' },
+  { label: 'Tahoma', value: 'Tahoma, sans-serif' },
+  { label: 'Trebuchet MS', value: '"Trebuchet MS", sans-serif' },
+  { label: 'Segoe UI', value: '"Segoe UI", sans-serif' },
+  { label: 'Calibri', value: 'Calibri, sans-serif' },
+  { label: 'Century Gothic', value: '"Century Gothic", sans-serif' },
+  { label: 'Impact', value: 'Impact, sans-serif' },
+  { label: 'Times New Roman', value: '"Times New Roman", Times, serif' },
+  { label: 'Georgia', value: 'Georgia, serif' },
+  { label: 'Garamond', value: 'Garamond, serif' },
+  { label: 'Palatino', value: '"Palatino Linotype", Palatino, serif' },
+  { label: 'Cambria', value: 'Cambria, serif' },
+  { label: 'Bookman', value: '"Bookman Old Style", serif' },
+  { label: 'Courier New', value: '"Courier New", Courier, monospace' },
+  { label: 'Lucida Console', value: '"Lucida Console", Monaco, monospace' },
+  { label: 'Consolas', value: 'Consolas, monospace' },
+  { label: 'Brush Script MT', value: '"Brush Script MT", cursive' },
+  { label: 'Comic Sans MS', value: '"Comic Sans MS", cursive' },
+  { label: 'Sans-serif (generic)', value: 'sans-serif' },
+  { label: 'Serif (generic)', value: 'serif' },
+  { label: 'Monospace (generic)', value: 'monospace' },
+  { label: 'Cursive (generic)', value: 'cursive' },
 ]
+
+function loadGuideFont() {
+  try {
+    const stored = localStorage.getItem(GUIDE_FONT_STORAGE_KEY)
+    if (stored && GUIDE_FONTS.some(f => f.value === stored)) return stored
+  } catch {}
+  return GUIDE_FONTS[0].value
+}
 
 function charStorageKey(char) {
   return `fontmaker-glyph-${char.charCodeAt(0)}`
@@ -1073,7 +1103,7 @@ function TypeBox({ strokesRefs, brushSize, drawnChars, version }) {
 }
 
 export default function FontMaker() {
-  const [guideFont, setGuideFont] = useState('sans-serif')
+  const [guideFont, setGuideFont] = useState(loadGuideFont)
   const [brushSize, setBrushSize] = useState(14)
   const [fontName, setFontName] = useState('My Handwriting')
   const [drawnChars, setDrawnChars] = useState(() => new Set())
@@ -1100,6 +1130,12 @@ export default function FontMaker() {
     setDrawnChars(new Set(drawn))
     setResetVersion(v => v + 1)
   }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(GUIDE_FONT_STORAGE_KEY, guideFont)
+    } catch {}
+  }, [guideFont])
 
   const handleCommit = useCallback((char, strokes, saveOk = true) => {
     strokesRefs.current[char] = strokes
