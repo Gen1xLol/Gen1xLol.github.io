@@ -135,7 +135,9 @@ const GUIDE_OPACITY_STORAGE_KEY = 'fontmaker-guide-opacity'
 
 function loadGuideOpacity() {
   try {
-    const stored = Number(localStorage.getItem(GUIDE_OPACITY_STORAGE_KEY))
+    const raw = localStorage.getItem(GUIDE_OPACITY_STORAGE_KEY)
+    if (raw === null || raw === '') return 16
+    const stored = Number(raw)
     if (Number.isFinite(stored) && stored >= 0 && stored <= 100) return stored
   } catch {}
   return 16
