@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Font, Glyph, Path, parse as parseFont } from 'opentype.js'
-import { ArrowLeft, ArrowRight, Undo2, Redo2, X, Space, TriangleAlert } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Undo2, Redo2, X, Space, TriangleAlert, Plus, PenLine, Crosshair, Minus, Upload } from 'lucide-react'
 
 const CANVAS_SIZE = 480
 const UNITS_PER_EM = 1000
@@ -9,14 +9,54 @@ const ASCENDER = 800
 const DESCENDER = -200
 const SCALE = UNITS_PER_EM / CANVAS_SIZE
 
-const CHAR_GROUPS = [
+const BASE_CHAR_GROUPS = [
   { label: 'Uppercase', chars: 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZÁÉÍÓÚÜ'.split('') },
   { label: 'Lowercase', chars: 'abcdefghijklmnñopqrstuvwxyzáéíóúü'.split('') },
   { label: 'Numbers', chars: '0123456789'.split('') },
   { label: 'Punctuation', chars: '.,¡!¿?\'"-—_:;()[]{}@#$%&*+=/\\<>~^|'.split('') },
 ]
 
-const ALL_CHARS = CHAR_GROUPS.flatMap(g => g.chars)
+const CUSTOM_SYMBOLS_STORAGE_KEY = 'fontmaker-custom-symbols'
+
+function loadCustomSymbols() {
+  try {
+    const stored = localStorage.getItem(CUSTOM_SYMBOLS_STORAGE_KEY)
+    if (!stored) return []
+    const parsed = JSON.parse(stored)
+    if (!Array.isArray(parsed)) return []
+    const base = new Set(BASE_CHAR_GROUPS.flatMap(g => g.chars))
+    const seen = new Set()
+    return parsed.filter(c => {
+      if (typeof c !== 'string' || c.length !== 1) return false
+      if (base.has(c) || seen.has(c)) return false
+      seen.add(c)
+      return true
+    })
+  } catch {
+    return []
+  }
+}
+
+function saveCustomSymbols(symbols) {
+  try {
+    localStorage.setItem(CUSTOM_SYMBOLS_STORAGE_KEY, JSON.stringify(symbols))
+  } catch {}
+}
+
+let CHAR_GROUPS = BASE_CHAR_GROUPS
+let ALL_CHARS = CHAR_GROUPS.flatMap(g => g.chars)
+
+function rebuildCharGroups(customSymbols) {
+  CHAR_GROUPS = customSymbols.length > 0
+    ? [...BASE_CHAR_GROUPS, { label: 'Custom', chars: customSymbols }]
+    : BASE_CHAR_GROUPS
+  ALL_CHARS = CHAR_GROUPS.flatMap(g => g.chars)
+  return ALL_CHARS
+}
+
+if (typeof window !== 'undefined') {
+  rebuildCharGroups(loadCustomSymbols())
+}
 
 const GUIDE_FONT_STORAGE_KEY = 'fontmaker-guide-font'
 
@@ -89,6 +129,32 @@ function loadSmoothIntensity() {
     if (Number.isFinite(stored) && stored >= 1 && stored <= 100) return stored
   } catch {}
   return 50
+}
+
+const GUIDE_OPACITY_STORAGE_KEY = 'fontmaker-guide-opacity'
+
+function loadGuideOpacity() {
+  try {
+    const stored = Number(localStorage.getItem(GUIDE_OPACITY_STORAGE_KEY))
+    if (Number.isFinite(stored) && stored >= 0 && stored <= 100) return stored
+  } catch {}
+  return 16
+}
+
+const CUSTOM_GUIDE_FONT_NAME = 'FontMakerCustomGuide'
+let customGuideFontFace = null
+
+async function loadCustomGuideFont(file) {
+  const buffer = await file.arrayBuffer()
+  if (customGuideFontFace) {
+    document.fonts.delete(customGuideFontFace)
+    customGuideFontFace = null
+  }
+  const face = new FontFace(CUSTOM_GUIDE_FONT_NAME, buffer)
+  await face.load()
+  document.fonts.add(face)
+  customGuideFontFace = face
+  return `"${CUSTOM_GUIDE_FONT_NAME}"`
 }
 
 function charStorageKey(char) {
@@ -493,24 +559,28 @@ function smoothStroke(points, intensity) {
   return smoothed
 }
 
-function drawGlyph(ctx, char, guideFont, brushSize, strokes) {
+function drawGlyph(ctx, char, guideFont, brushSize, strokes, guideOpacity = 16) {
   ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
 
   ctx.fillStyle = '#0a0810'
   ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
 
-  ctx.font = `${CANVAS_SIZE * 0.72}px ${guideFont}`
-  ctx.fillStyle = 'rgba(167, 139, 250, 0.16)'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(char, CANVAS_SIZE / 2, CANVAS_SIZE / 2 + CANVAS_SIZE * 0.04)
+  const opacity = guideOpacity / 100
 
-  ctx.strokeStyle = 'rgba(167, 139, 250, 0.08)'
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  ctx.moveTo(0, CANVAS_SIZE * 0.75)
-  ctx.lineTo(CANVAS_SIZE, CANVAS_SIZE * 0.75)
-  ctx.stroke()
+  if (opacity > 0) {
+    ctx.font = `${CANVAS_SIZE * 0.72}px ${guideFont}`
+    ctx.fillStyle = `rgba(167, 139, 250, ${opacity})`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(char, CANVAS_SIZE / 2, CANVAS_SIZE / 2 + CANVAS_SIZE * 0.04)
+
+    ctx.strokeStyle = `rgba(167, 139, 250, ${opacity * 0.5})`
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(0, CANVAS_SIZE * 0.75)
+    ctx.lineTo(CANVAS_SIZE, CANVAS_SIZE * 0.75)
+    ctx.stroke()
+  }
 
   ctx.strokeStyle = '#e9e4f0'
   ctx.lineWidth = brushSize
@@ -894,20 +964,81 @@ function setupCanvasDPI(canvas, cssWidth, cssHeight) {
   return ctx
 }
 
-function GlyphEditor({ char, guideFont, brushSize, initialStrokes, onCommit, steadyHand, smoothIntensity, resetKey }) {
+function snapAngle(from, to) {
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  const dist = Math.hypot(dx, dy)
+  if (dist === 0) return to
+  const angle = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4)
+  return {
+    x: from.x + Math.cos(angle) * dist,
+    y: from.y + Math.sin(angle) * dist,
+  }
+}
+
+function centerStrokes(strokes) {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+  let found = false
+
+  for (const stroke of strokes) {
+    if (isOutlineStroke(stroke)) {
+      for (const contour of stroke.contours) {
+        for (const p of contour) {
+          found = true
+          if (p.x < minX) minX = p.x
+          if (p.x > maxX) maxX = p.x
+          if (p.y < minY) minY = p.y
+          if (p.y > maxY) maxY = p.y
+        }
+      }
+      continue
+    }
+    for (const p of stroke) {
+      found = true
+      if (p.x < minX) minX = p.x
+      if (p.x > maxX) maxX = p.x
+      if (p.y < minY) minY = p.y
+      if (p.y > maxY) maxY = p.y
+    }
+  }
+
+  if (!found) return strokes
+
+  const shiftX = CANVAS_SIZE / 2 - (minX + maxX) / 2
+  const shiftY = CANVAS_SIZE / 2 - (minY + maxY) / 2
+  if (Math.abs(shiftX) < 0.5 && Math.abs(shiftY) < 0.5) return strokes
+
+  const shiftPt = (p) => ({ x: p.x + shiftX, y: p.y + shiftY })
+
+  return strokes.map(stroke => {
+    if (isOutlineStroke(stroke)) {
+      return { type: 'outline', contours: stroke.contours.map(c => c.map(shiftPt)) }
+    }
+    return stroke.map(shiftPt)
+  })
+}
+
+function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialStrokes, onCommit, steadyHand, smoothIntensity, resetKey }) {
   const canvasRef = useRef(null)
   const drawingRef = useRef(false)
   const currentStrokeRef = useRef([])
+  const lineStartRef = useRef(null)
   const historyRef = useRef([initialStrokes])
   const historyIndexRef = useRef(0)
+  const [tool, setTool] = useState('brush')
+  const [shiftHeld, setShiftHeld] = useState(false)
+  const toolRef = useRef(tool)
+  const shiftHeldRef = useRef(false)
+  toolRef.current = tool
+  shiftHeldRef.current = shiftHeld
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     setupCanvasDPI(canvas, CANVAS_SIZE, CANVAS_SIZE)
     const ctx = canvas.getContext('2d')
-    drawGlyph(ctx, char, guideFont, brushSize, historyRef.current[historyIndexRef.current])
-  }, [char, guideFont, brushSize])
+    drawGlyph(ctx, char, guideFont, brushSize, historyRef.current[historyIndexRef.current], guideOpacity)
+  }, [char, guideFont, brushSize, guideOpacity])
 
   useEffect(() => {
     historyRef.current = [initialStrokes]
@@ -917,7 +1048,7 @@ function GlyphEditor({ char, guideFont, brushSize, initialStrokes, onCommit, ste
 
   useEffect(() => {
     redraw()
-  }, [guideFont, brushSize])
+  }, [guideFont, brushSize, guideOpacity])
 
   useEffect(() => {
     const handleDpiChange = () => redraw()
@@ -926,6 +1057,13 @@ function GlyphEditor({ char, guideFont, brushSize, initialStrokes, onCommit, ste
     mq.addEventListener?.('change', handleDpiChange)
     return () => mq.removeEventListener?.('change', handleDpiChange)
   }, [redraw])
+  
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual'
+    }
+    window.scrollTo(0, 0)
+  }, [])
 
   const currentStrokes = () => historyRef.current[historyIndexRef.current]
 
@@ -957,9 +1095,15 @@ function GlyphEditor({ char, guideFont, brushSize, initialStrokes, onCommit, ste
     redraw()
   }, [char, redraw])
 
+  const handleCenter = useCallback(() => {
+    const centered = centerStrokes(currentStrokes())
+    if (centered !== currentStrokes()) pushHistory(centered)
+  }, [char])
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       const key = e.key.toLowerCase()
+      if (e.key === 'Shift') setShiftHeld(true)
       if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
         e.preventDefault()
         undo()
@@ -968,32 +1112,66 @@ function GlyphEditor({ char, guideFont, brushSize, initialStrokes, onCommit, ste
         redo()
       }
     }
+    const handleKeyUp = (e) => {
+      if (e.key === 'Shift') setShiftHeld(false)
+    }
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
   }, [undo, redo])
 
   const getPos = (e) => {
     const canvas = canvasRef.current
     const rect = canvas.getBoundingClientRect()
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0])
+    const clientX = touch ? touch.clientX : e.clientX
+    const clientY = touch ? touch.clientY : e.clientY
     return {
       x: ((clientX - rect.left) / rect.width) * CANVAS_SIZE,
       y: ((clientY - rect.top) / rect.height) * CANVAS_SIZE,
     }
   }
 
+  const drawLinePreview = (from, to) => {
+    redraw()
+    const ctx = canvasRef.current.getContext('2d')
+    ctx.strokeStyle = '#e9e4f0'
+    ctx.lineWidth = brushSize
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.beginPath()
+    ctx.moveTo(from.x, from.y)
+    ctx.lineTo(to.x, to.y)
+    ctx.stroke()
+  }
+
   const handleStart = (e) => {
     e.preventDefault()
     drawingRef.current = true
     const pos = getPos(e)
-    currentStrokeRef.current = [pos]
+    if (toolRef.current === 'line') {
+      lineStartRef.current = pos
+    } else {
+      currentStrokeRef.current = [pos]
+    }
   }
 
   const handleMove = (e) => {
     if (!drawingRef.current) return
     e.preventDefault()
     const pos = getPos(e)
+
+    if (toolRef.current === 'line') {
+      const start = lineStartRef.current
+      if (!start) return
+      const end = shiftHeldRef.current ? snapAngle(start, pos) : pos
+      drawLinePreview(start, end)
+      return
+    }
+
     currentStrokeRef.current.push(pos)
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
@@ -1010,9 +1188,28 @@ function GlyphEditor({ char, guideFont, brushSize, initialStrokes, onCommit, ste
     }
   }
 
-  const handleEnd = () => {
+  const handleEnd = (e) => {
     if (!drawingRef.current) return
     drawingRef.current = false
+
+    if (toolRef.current === 'line') {
+      const start = lineStartRef.current
+      lineStartRef.current = null
+      if (start && e) {
+        const pos = getPos(e)
+        const end = shiftHeldRef.current ? snapAngle(start, pos) : pos
+        if (Math.hypot(end.x - start.x, end.y - start.y) > 0.5) {
+          const next = [...currentStrokes(), [start, end]]
+          pushHistory(next)
+        } else {
+          redraw()
+        }
+      } else {
+        redraw()
+      }
+      return
+    }
+
     if (currentStrokeRef.current.length > 0) {
       const finishedStroke = steadyHand
         ? smoothStroke(currentStrokeRef.current, smoothIntensity)
@@ -1033,6 +1230,25 @@ function GlyphEditor({ char, guideFont, brushSize, initialStrokes, onCommit, ste
 
   return (
     <div className="fm-editor">
+      <div className="fm-tool-row">
+        <button
+          type="button"
+          className={`fm-tool-btn${tool === 'brush' ? ' fm-tool-btn--active' : ''}`}
+          onClick={() => setTool('brush')}
+          title="Brush"
+        >
+          <PenLine size={15} /> Brush
+        </button>
+        <button
+          type="button"
+          className={`fm-tool-btn${tool === 'line' ? ' fm-tool-btn--active' : ''}`}
+          onClick={() => setTool('line')}
+          title="Line tool (hold Shift to snap to 45°)"
+        >
+          <Minus size={15} /> Line
+        </button>
+        {tool === 'line' && <span className="fm-tool-hint">Hold Shift to snap 45°</span>}
+      </div>
       <canvas
         ref={canvasRef}
         className="fm-editor-canvas"
@@ -1047,6 +1263,7 @@ function GlyphEditor({ char, guideFont, brushSize, initialStrokes, onCommit, ste
       <div className="fm-editor-actions">
         <button onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)"><Undo2 size={16} /> Undo</button>
         <button onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Y)"><Redo2 size={16} /> Redo</button>
+        <button onClick={handleCenter} title="Center the drawing"><Crosshair size={16} /> Center</button>
         <button onClick={handleClear} className="fm-editor-clear"><X size={16} /> Clear</button>
       </div>
     </div>
@@ -1182,10 +1399,26 @@ export default function FontMaker() {
   const [importError, setImportError] = useState(null)
   const [bootLoading, setBootLoading] = useState(true)
   const [bootProgress, setBootProgress] = useState(0)
+  const [guideOpacity, setGuideOpacity] = useState(loadGuideOpacity)
+  const [customSymbols, setCustomSymbols] = useState(loadCustomSymbols)
+  const [newSymbolInput, setNewSymbolInput] = useState('')
+  const [symbolError, setSymbolError] = useState(null)
+  const [loadingCustomGuideFont, setLoadingCustomGuideFont] = useState(false)
+  const [guideFontError, setGuideFontError] = useState(null)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const importInputRef = useRef(null)
   const importModeRef = useRef('current')
+  const guideFontInputRef = useRef(null)
   const strokesRefs = useRef({})
   const brushSizeRef = useRef(brushSize)
+  const customSymbolsSet = useMemo(() => new Set(customSymbols), [customSymbols])
+  
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual'
+    }
+    window.scrollTo(0, 0)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -1307,6 +1540,27 @@ export default function FontMaker() {
     } catch {}
   }, [smoothIntensity])
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(GUIDE_OPACITY_STORAGE_KEY, String(guideOpacity))
+    } catch {}
+  }, [guideOpacity])
+
+  useEffect(() => {
+    setHasUnsavedChanges(saveErrorChars.size > 0)
+  }, [saveErrorChars])
+
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (!hasUnsavedChanges) return
+      e.preventDefault()
+      e.returnValue = ''
+      return ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges])
+
   const handleCommit = useCallback((char, strokes, saveOk = true) => {
     strokesRefs.current[char] = strokes
     setDrawnChars(prev => {
@@ -1332,6 +1586,66 @@ export default function FontMaker() {
     }
     setDrawnChars(new Set())
     setResetVersion(v => v + 1)
+  }
+
+  const handleAddSymbol = () => {
+    const trimmed = newSymbolInput.trim()
+    setSymbolError(null)
+    if (!trimmed) {
+      setSymbolError('Type a symbol first.')
+      return
+    }
+    const char = [...trimmed][0]
+    if (ALL_CHARS.includes(char)) {
+      setSymbolError(`"${char}" is already in the list.`)
+      return
+    }
+    const next = [...customSymbols, char]
+    setCustomSymbols(next)
+    saveCustomSymbols(next)
+    rebuildCharGroups(next)
+    strokesRefs.current[char] = strokesRefs.current[char] || []
+    setNewSymbolInput('')
+    setResetVersion(v => v + 1)
+    setIndex(ALL_CHARS.indexOf(char))
+  }
+
+  const handleRemoveSymbol = (char) => {
+    if (!window.confirm(`Remove "${char}" from your symbol list? Any drawing for it will be deleted too.`)) return
+    const next = customSymbols.filter(c => c !== char)
+    setCustomSymbols(next)
+    saveCustomSymbols(next)
+    const removedIndex = ALL_CHARS.indexOf(char)
+    rebuildCharGroups(next)
+    clearStroke(char)
+    delete strokesRefs.current[char]
+    setDrawnChars(prev => {
+      const nextSet = new Set(prev)
+      nextSet.delete(char)
+      return nextSet
+    })
+    setIndex(i => {
+      if (removedIndex === -1) return Math.min(i, ALL_CHARS.length - 1)
+      if (i > removedIndex) return i - 1
+      return Math.min(i, ALL_CHARS.length - 1)
+    })
+    setResetVersion(v => v + 1)
+  }
+
+  const handleGuideFontUpload = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setLoadingCustomGuideFont(true)
+    setGuideFontError(null)
+    try {
+      const cssValue = await loadCustomGuideFont(file)
+      setGuideFont(cssValue)
+    } catch (err) {
+      setGuideFontError(err.message || 'Could not load that font file as a guide.')
+    } finally {
+      setLoadingCustomGuideFont(false)
+    }
   }
 
   const handleImportCurrentClick = () => {
@@ -1407,6 +1721,19 @@ export default function FontMaker() {
   const goNext = useCallback(() => {
     setIndex(i => Math.min(ALL_CHARS.length - 1, i + 1))
   }, [])
+
+  useEffect(() => {
+    const handleEnterKey = (e) => {
+      if (e.key !== 'Enter') return
+      const target = e.target
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return
+      e.preventDefault()
+      goNext()
+    }
+    window.addEventListener('keydown', handleEnterKey)
+    return () => window.removeEventListener('keydown', handleEnterKey)
+  }, [goNext])
 
   const progress = drawnChars.size
   const currentChar = ALL_CHARS[index]
@@ -1501,7 +1828,17 @@ export default function FontMaker() {
     <>
       <div className="fm-page-header">
         <div className="fm-page-header-inner">
-          <Link to="/" className="fm-back-link"><ArrowLeft size={16} /> back</Link>
+          <Link
+            to="/"
+            className="fm-back-link"
+            onClick={e => {
+              if (hasUnsavedChanges && !window.confirm(
+                'Some glyphs failed to save to this browser and will be lost if you leave. Leave anyway?'
+              )) {
+                e.preventDefault()
+              }
+            }}
+          ><ArrowLeft size={16} /> back</Link>
           <div className="fm-page-title-group">
             <span className="fm-page-title">Draw-A-Font</span>
             <span className="fm-page-subtitle">{progress} / {ALL_CHARS.length} drawn</span>
@@ -1527,9 +1864,10 @@ export default function FontMaker() {
 
         <div className="fm-intro">
           Draw each character by hand, using the guide letter behind it for reference.
-          Use the arrows to move between characters, Ctrl+Z / Ctrl+Y to undo and redo.
-          Turn on Steady Hand to smooth out each stroke after you draw it. Your progress
-          saves automatically in this browser.
+          Use the arrows or press Enter to move to the next character, Ctrl+Z / Ctrl+Y to
+          undo and redo. Switch to the Line tool for straight strokes. You can hold Shift to snap
+          to 45°. Turn on Steady Hand to smooth out each stroke after you draw it. Your
+          progress saves automatically in this browser.
         </div>
 
         {saveErrorChars.size > 0 && (
@@ -1551,6 +1889,9 @@ export default function FontMaker() {
               value={guideFont}
               onChange={e => setGuideFont(e.target.value)}
             >
+              {loadingCustomGuideFont === false && guideFont === `"${CUSTOM_GUIDE_FONT_NAME}"` && (
+                <option value={guideFont}>Your uploaded font</option>
+              )}
               {GUIDE_FONTS.map(f => (
                 <option key={f.value} value={f.value}>{f.label}</option>
               ))}
@@ -1605,7 +1946,7 @@ export default function FontMaker() {
             </div>
           </div>
 
-          <div className="fm-toolbar-group">
+          <div className="fm-toolbar-group fm-toolbar-group--import">
             <label className="fm-toolbar-label">Import font</label>
             <div className="fm-import-btn-row">
               <button
@@ -1633,6 +1974,63 @@ export default function FontMaker() {
               style={{ display: 'none' }}
             />
             {importError && <div className="fm-import-error">{importError}</div>}
+          </div>
+
+          <div className="fm-toolbar-group fm-toolbar-group--row3">
+            <label className="fm-toolbar-label">Guide opacity</label>
+            <input
+              type="range"
+              min="0"
+              max="60"
+              value={guideOpacity}
+              onChange={e => setGuideOpacity(Number(e.target.value))}
+              className="fm-range"
+            />
+            <span className="fm-range-value">{guideOpacity}%</span>
+          </div>
+
+          <div className="fm-toolbar-group fm-toolbar-group--row3">
+            <label className="fm-toolbar-label">Guide reference font</label>
+            <button
+              className="fm-import-btn"
+              onClick={() => guideFontInputRef.current?.click()}
+              disabled={loadingCustomGuideFont}
+              type="button"
+            >
+              <Upload size={13} /> {loadingCustomGuideFont ? 'Loading...' : 'Upload font as guide'}
+            </button>
+            <input
+              ref={guideFontInputRef}
+              type="file"
+              accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff"
+              onChange={handleGuideFontUpload}
+              style={{ display: 'none' }}
+            />
+            {guideFontError && <div className="fm-import-error">{guideFontError}</div>}
+          </div>
+
+          <div className="fm-toolbar-group fm-toolbar-group--row3">
+            <label className="fm-toolbar-label">Add custom symbol</label>
+            <div className="fm-import-btn-row">
+              <input
+                type="text"
+                className="fm-text-input fm-symbol-input"
+                value={newSymbolInput}
+                onChange={e => setNewSymbolInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleAddSymbol()
+                  }
+                }}
+                placeholder="e.g. €"
+                maxLength={4}
+              />
+              <button className="fm-import-btn" onClick={handleAddSymbol} type="button">
+                <Plus size={14} />
+              </button>
+            </div>
+            {symbolError && <div className="fm-import-error">{symbolError}</div>}
           </div>
 
           <button className="fm-clear-all-btn" onClick={handleClearAll}>
@@ -1677,6 +2075,7 @@ export default function FontMaker() {
           char={currentChar}
           guideFont={guideFont}
           brushSize={brushSize}
+          guideOpacity={guideOpacity}
           initialStrokes={strokesRefs.current[currentChar] || []}
           onCommit={handleCommit}
           steadyHand={steadyHand}
@@ -1699,15 +2098,29 @@ export default function FontMaker() {
         />
 
         <div className="fm-strip">
-          {ALL_CHARS.map((char, i) => (
-            <button
-              key={char}
-              className={`fm-strip-item${i === index ? ' fm-strip-item--active' : ''}${drawnChars.has(char) ? ' fm-strip-item--done' : ''}`}
-              onClick={() => setIndex(i)}
-            >
-              {char === ' ' ? <Space size={14} /> : char}
-            </button>
-          ))}
+          {ALL_CHARS.map((char, i) => {
+            const isCustom = customSymbolsSet.has(char)
+            return (
+              <div key={char} className="fm-strip-item-wrap">
+                <button
+                  className={`fm-strip-item${i === index ? ' fm-strip-item--active' : ''}${drawnChars.has(char) ? ' fm-strip-item--done' : ''}`}
+                  onClick={() => setIndex(i)}
+                >
+                  {char === ' ' ? <Space size={14} /> : char}
+                </button>
+                {isCustom && (
+                  <button
+                    className="fm-strip-item-remove"
+                    onClick={() => handleRemoveSymbol(char)}
+                    title={`Remove custom symbol "${char}"`}
+                    type="button"
+                  >
+                    <X size={9} />
+                  </button>
+                )}
+              </div>
+            )
+          })}
         </div>
 
         <div className="fm-about-section">
