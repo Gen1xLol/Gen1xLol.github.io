@@ -2,6 +2,10 @@
 
 svg { display: block; flex-shrink: 0; }
 
+@font-face {
+  font-family: "Gen1x Smooth";
+  src: url(./gen1x-smooth.woff2) format('woff2');
+}
 
 :root {
   --bg:       #0f0d14;
@@ -80,8 +84,7 @@ main {
   margin-bottom: 20px;
 }
 .intro h1 {
-  font-family: 'Instrument Serif', serif;
-  font-style: italic;
+  font-family: 'Gen1x Smooth';
   font-size: clamp(42px, 8vw, 64px);
   font-weight: 400;
   line-height: 1.05;
