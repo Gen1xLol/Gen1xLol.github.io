@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Font, Glyph, Path, parse as parseFont } from 'opentype.js'
-import { ArrowLeft, ArrowRight, Undo2, Redo2, X, Space, TriangleAlert, Plus, PenLine, Crosshair, Minus, Upload } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Undo2, Redo2, X, Space, TriangleAlert, Plus, PenLine, Locate, Minus, Upload, Trash2 } from 'lucide-react'
 import { loadStroke, saveStroke, clearStroke } from '../glyphDB.js'
 
 const CANVAS_SIZE = 480
@@ -14,7 +14,7 @@ const BASE_CHAR_GROUPS = [
   { label: 'Uppercase', chars: 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZÁÉÍÓÚÜ'.split('') },
   { label: 'Lowercase', chars: 'abcdefghijklmnñopqrstuvwxyzáéíóúü'.split('') },
   { label: 'Numbers', chars: '0123456789'.split('') },
-  { label: 'Punctuation', chars: '.,¡!¿?\'"-—_:;()[]{}@#$%&*+=/\\<>~^|'.split('') },
+  { label: 'Punctuation', chars: '.:,;¡!¿?\'"-—_()[]{}@#$%&*+=/\\<>~^|'.split('') },
 ]
 
 const CUSTOM_SYMBOLS_STORAGE_KEY = 'fontmaker-custom-symbols'
@@ -1034,7 +1034,7 @@ function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialStrokes,
     mq.addEventListener?.('change', handleDpiChange)
     return () => mq.removeEventListener?.('change', handleDpiChange)
   }, [redraw])
-  
+
   useEffect(() => {
     if ('scrollRestoration' in window.history) {
       window.history.scrollRestoration = 'manual'
@@ -1229,6 +1229,12 @@ function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialStrokes,
           <Minus size={15} /> Line
         </button>
         {tool === 'line' && <span className="fm-tool-hint">Hold Shift to snap 45°</span>}
+        <div className="fm-editor-actions">
+          <button onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)"><Undo2 size={16} /></button>
+          <button onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Y)"><Redo2 size={16} /></button>
+          <button onClick={handleCenter} title="Center the drawing"><Locate size={16} /></button>
+          <button onClick={handleClear} className="fm-editor-clear" title="Clear the canvas"><Trash2 size={16} /></button>
+        </div>
       </div>
       <canvas
         ref={canvasRef}
@@ -1241,12 +1247,6 @@ function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialStrokes,
         onTouchMove={handleMove}
         onTouchEnd={handleEnd}
       />
-      <div className="fm-editor-actions">
-        <button onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)"><Undo2 size={16} /> Undo</button>
-        <button onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Y)"><Redo2 size={16} /> Redo</button>
-        <button onClick={handleCenter} title="Center the drawing"><Crosshair size={16} /> Center</button>
-        <button onClick={handleClear} className="fm-editor-clear"><X size={16} /> Clear</button>
-      </div>
     </div>
   )
 }
@@ -1429,7 +1429,7 @@ export default function FontMaker() {
   const strokesRefs = useRef({})
   const brushSizeRef = useRef(brushSize)
   const customSymbolsSet = useMemo(() => new Set(customSymbols), [customSymbols])
-  
+
   useEffect(() => {
     if ('scrollRestoration' in window.history) {
       window.history.scrollRestoration = 'manual'
@@ -1621,19 +1621,25 @@ export default function FontMaker() {
       setSymbolError('Type a symbol first.')
       return
     }
-    const char = [...trimmed][0]
-    if (ALL_CHARS.includes(char)) {
-      setSymbolError(`"${char}" is already in the list.`)
+    const chars = [...new Set([...trimmed])]
+    const already = chars.filter(c => ALL_CHARS.includes(c))
+    const fresh = chars.filter(c => !ALL_CHARS.includes(c))
+    if (fresh.length === 0) {
+      setSymbolError(already.length === 1
+        ? `"${already[0]}" is already in the list.`
+        : 'All of those symbols are already in the list.')
       return
     }
-    const next = [...customSymbols, char]
+    const next = [...customSymbols, ...fresh]
     setCustomSymbols(next)
     saveCustomSymbols(next)
     rebuildCharGroups(next)
-    strokesRefs.current[char] = strokesRefs.current[char] || []
+    for (const char of fresh) {
+      strokesRefs.current[char] = strokesRefs.current[char] || []
+    }
     setNewSymbolInput('')
     setResetVersion(v => v + 1)
-    setIndex(ALL_CHARS.indexOf(char))
+    setIndex(ALL_CHARS.indexOf(fresh[0]))
   }
 
   const handleRemoveSymbol = (char) => {
@@ -1949,7 +1955,7 @@ export default function FontMaker() {
           </div>
 
           <div className="fm-toolbar-group">
-		    <label className="fm-toolbar-label">Smoothing</label>
+		        <label className="fm-toolbar-label">Smoothing</label>
             <label className="fm-toolbar-label fm-steady-label">
               <input
                 type="checkbox"
@@ -1972,96 +1978,70 @@ export default function FontMaker() {
             </div>
           </div>
 
-          <div className="fm-toolbar-group fm-toolbar-group--import">
-            <label className="fm-toolbar-label">Import font</label>
-            <div className="fm-import-btn-row">
-              <button
-                className="fm-import-btn"
-                onClick={handleImportCurrentClick}
-                disabled={importing}
-                type="button"
-              >
-                {importing ? 'Importing…' : `Load "${currentChar === ' ' ? 'space' : currentChar}" only`}
-              </button>
-              <button
-                className="fm-import-btn"
-                onClick={handleImportAllClick}
-                disabled={importing}
-                type="button"
-              >
-                {importing ? 'Importing…' : 'Load whole alphabet'}
-              </button>
-            </div>
-            <input
-              ref={importInputRef}
-              type="file"
-              accept=".ttf,.otf,.woff,font/ttf,font/otf,font/woff"
-              onChange={handleImportFile}
-              style={{ display: 'none' }}
-            />
-            {importError && <div className="fm-import-error">{importError}</div>}
-          </div>
-
-          <div className="fm-toolbar-group fm-toolbar-group--row3">
-            <label className="fm-toolbar-label">Guide opacity</label>
-            <input
-              type="range"
-              min="0"
-              max="60"
-              value={guideOpacity}
-              onChange={e => setGuideOpacity(Number(e.target.value))}
-              className="fm-range"
-            />
-            <span className="fm-range-value">{guideOpacity}%</span>
-          </div>
-
-          <div className="fm-toolbar-group fm-toolbar-group--row3">
-            <label className="fm-toolbar-label">Guide reference font</label>
-            <button
-              className="fm-import-btn"
-              onClick={() => guideFontInputRef.current?.click()}
-              disabled={loadingCustomGuideFont}
-              type="button"
-            >
-              <Upload size={13} /> {loadingCustomGuideFont ? 'Loading...' : 'Upload font as guide'}
-            </button>
-            <input
-              ref={guideFontInputRef}
-              type="file"
-              accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff"
-              onChange={handleGuideFontUpload}
-              style={{ display: 'none' }}
-            />
-            {guideFontError && <div className="fm-import-error">{guideFontError}</div>}
-          </div>
-
-          <div className="fm-toolbar-group fm-toolbar-group--row3">
-            <label className="fm-toolbar-label">Add custom symbol</label>
-            <div className="fm-import-btn-row">
+          <div className="fm-toolbar-row3">
+            <div className="fm-toolbar-group fm-toolbar-group--row3">
+              <label className="fm-toolbar-label">Import font</label>
+              <div className="fm-import-btn-row">
+                <button
+                  className="fm-import-btn"
+                  onClick={handleImportCurrentClick}
+                  disabled={importing}
+                  type="button"
+                >
+                  {importing ? 'Importing…' : `Load "${currentChar === ' ' ? 'space' : currentChar}" only`}
+                </button>
+                <button
+                  className="fm-import-btn"
+                  onClick={handleImportAllClick}
+                  disabled={importing}
+                  type="button"
+                >
+                  {importing ? 'Importing…' : 'Load whole alphabet'}
+                </button>
+              </div>
               <input
-                type="text"
-                className="fm-text-input fm-symbol-input"
-                value={newSymbolInput}
-                onChange={e => setNewSymbolInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    handleAddSymbol()
-                  }
-                }}
-                placeholder="e.g. €"
-                maxLength={4}
+                ref={importInputRef}
+                type="file"
+                accept=".ttf,.otf,.woff,font/ttf,font/otf,font/woff"
+                onChange={handleImportFile}
+                style={{ display: 'none' }}
               />
-              <button className="fm-import-btn" onClick={handleAddSymbol} type="button">
-                <Plus size={14} />
-              </button>
+              {importError && <div className="fm-import-error">{importError}</div>}
             </div>
-            {symbolError && <div className="fm-import-error">{symbolError}</div>}
-          </div>
 
-          <button className="fm-clear-all-btn" onClick={handleClearAll}>
-            Clear all glyphs
-          </button>
+            <div className="fm-toolbar-group fm-toolbar-group--row3">
+              <label className="fm-toolbar-label">Guide opacity</label>
+              <input
+                type="range"
+                min="0"
+                max="60"
+                value={guideOpacity}
+                onChange={e => setGuideOpacity(Number(e.target.value))}
+                className="fm-range"
+              />
+              <span className="fm-range-value">{guideOpacity}%</span>
+            </div>
+
+            <div className="fm-toolbar-group fm-toolbar-group--row3">
+              <label className="fm-toolbar-label">Guide reference font</label>
+              <button
+                className="fm-import-btn"
+                onClick={() => guideFontInputRef.current?.click()}
+                disabled={loadingCustomGuideFont}
+                type="button"
+              >
+                <Upload size={13} /> {loadingCustomGuideFont ? 'Loading...' : 'Upload font as guide'}
+              </button>
+              <input
+                ref={guideFontInputRef}
+                type="file"
+                accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff"
+                onChange={handleGuideFontUpload}
+                style={{ display: 'none' }}
+              />
+              {guideFontError && <div className="fm-import-error">{guideFontError}</div>}
+            </div>
+          </div>
         </div>
 
         <div className="fm-export-bar">
@@ -2081,6 +2061,9 @@ export default function FontMaker() {
               Export as .otf
             </button>
           </div>
+          <button className="fm-clear-all-btn" onClick={handleClearAll}>
+            Clear all glyphs
+          </button>
           {exportError && <div className="fm-export-error">{exportError}</div>}
         </div>
 
@@ -2149,6 +2132,28 @@ export default function FontMaker() {
           })}
         </div>
 
+        <div className="fm-add-symbol-bar">
+          <label className="fm-add-symbol-label">Add custom symbol</label>
+          <input
+            type="text"
+            className="fm-text-input fm-symbol-input"
+            value={newSymbolInput}
+            onChange={e => setNewSymbolInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                handleAddSymbol()
+              }
+            }}
+            placeholder="e.g. €£¥"
+            maxLength={64}
+          />
+          <button className="fm-import-btn" onClick={handleAddSymbol} type="button">
+            <Plus size={14} /> Add
+          </button>
+          {symbolError && <div className="fm-import-error">{symbolError}</div>}
+        </div>
+
         <div className="fm-about-section">
           <div className="fm-about-title">About this project</div>
           <p>
@@ -2165,6 +2170,10 @@ export default function FontMaker() {
           </p>
 		  <p>
 		  I hope you enjoy this silly thing as much as I enjoyed making it :)
+		  </p>
+		  <br />
+		  <p>
+		  Also shoutout to my friend <a href="https://ddededodediamante.vercel.app" target="_blank" rel="noopener">ddededodediamante</a> for helping develop this thing 🎉
 		  </p>
         </div>
       </main>

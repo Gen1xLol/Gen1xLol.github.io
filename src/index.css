@@ -144,7 +144,7 @@ main {
   line-height: 1.8;
   max-width: 560px;
 }
-.section p a {
+a {
   color: var(--purple);
   text-underline-offset: 3px;
 }
@@ -1034,38 +1034,25 @@ details[open] .gif-about-summary::before {
   grid-column: 1 / -1;
 }
 
-.fm-toolbar-group--import {
+.fm-toolbar-row3 {
   grid-column: 1 / -1;
-  grid-row: 2;
+  grid-row: 3;
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 20px 24px;
   padding-top: 16px;
   border-top: 1px solid var(--border);
-}
-
-.fm-toolbar-group--import > .fm-toolbar-label {
-  flex-shrink: 0;
 }
 
 .fm-toolbar-group--row3 {
-  grid-row: 3;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .fm-symbol-input {
-  width: 70px;
+  width: 120px;
   flex-shrink: 0;
   text-align: center;
-}
-
-.fm-clear-all-btn {
-  grid-row: 3;
-  grid-column: -2 / -1;
-  justify-self: end;
-  align-self: end;
 }
 
 .fm-toolbar-label {
@@ -1278,6 +1265,7 @@ details[open] .gif-about-summary::before {
 
 .fm-import-btn-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -1320,6 +1308,10 @@ details[open] .gif-about-summary::before {
   position: sticky;
   top: 0;
   z-index: 10;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
   background: linear-gradient(to bottom, var(--bg) 85%, rgba(0,0,0,0.08)), var(--bg);
   box-shadow: 0 3px 8px rgba(0,0,0,0.2);
   padding: 12px 0;
@@ -1330,6 +1322,10 @@ details[open] .gif-about-summary::before {
 .fm-export-buttons {
   display: flex;
   gap: 10px;
+}
+
+.fm-export-bar .fm-clear-all-btn {
+  margin-left: auto;
 }
 
 .fm-export-btn {
@@ -1377,6 +1373,7 @@ details[open] .gif-about-summary::before {
 }
 
 .fm-export-error {
+  flex-basis: 100%;
   margin-top: 10px;
   font-size: 12px;
   color: #ef4444;
@@ -1515,20 +1512,22 @@ details[open] .gif-about-summary::before {
 
 .fm-editor-actions {
   display: flex;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .fm-editor-actions button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 9px 16px;
+  padding: 7px 10px;
   background: linear-gradient(to bottom, rgba(255,255,255,0.07), rgba(255,255,255,0) 50%), var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   color: var(--mid);
   font-family: 'Inter', sans-serif;
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
   box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 1px 2px rgba(0,0,0,0.2);
   transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
@@ -1654,6 +1653,33 @@ details[open] .gif-about-summary::before {
   box-shadow: 0 1px 0 rgba(255,255,255,0.25) inset, 0 2px 6px rgba(109, 40, 217, 0.4);
 }
 
+.fm-add-symbol-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 16px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.05), rgba(255,255,255,0) 35%), var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 2px 8px rgba(0,0,0,0.2);
+  margin-bottom: 8px;
+}
+
+.fm-add-symbol-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--soft);
+  line-height: 15px;
+  flex-shrink: 0;
+}
+
+.fm-add-symbol-bar .fm-import-error {
+  margin-top: 0;
+}
+
 .fm-strip-item-wrap {
   position: relative;
 }
@@ -1714,17 +1740,8 @@ details[open] .gif-about-summary::before {
     gap: 14px 16px;
     padding: 14px;
   }
-  .fm-toolbar-group--import {
-    grid-column: 1 / -1;
-    grid-row: auto;
-  }
   .fm-toolbar-group--row3 {
-    grid-row: auto;
-  }
-  .fm-clear-all-btn {
-    grid-column: auto;
-    grid-row: auto;
-    justify-self: end;
+    flex: 1 1 200px;
   }
   .fm-import-btn-row {
     flex-wrap: wrap;
@@ -1737,15 +1754,8 @@ details[open] .gif-about-summary::before {
     gap: 14px;
     padding: 14px;
   }
-  .fm-toolbar-group--import,
   .fm-toolbar-group--row3 {
-    grid-column: 1;
-    grid-row: auto;
-  }
-  .fm-clear-all-btn {
-    grid-column: 1;
-    grid-row: auto;
-    justify-self: stretch;
+    flex-basis: 100%;
   }
   .fm-select,
   .fm-text-input {
