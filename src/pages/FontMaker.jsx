@@ -2538,12 +2538,13 @@ export default function FontMaker() {
           <div className="fm-about-title">About this project</div>
           <p>
             So... this entire project was born out of spite.
-			I was sick and tired of using those "draw your own font" apps on mobile with all the ads, which ended up
+			One day, I wanted to make a font out of my own handwriting. However, I was sick and tired
+			of using those "draw your own font" apps on mobile with all the ads, which ended up
 			producing fonts that Windows Font Viewer did not want to accept, for some reason. And all the characters
 			were spaced really weirdly.
           </p>
           <p>
-            SO I began working on this font maker to massively simplify the process of making a font off your own handwriting.
+            So I began working on this font maker to massively simplify the process of making a font off your own handwriting.
 			You just draw in each box for the characters you want, and you have your own font, ready to be used anywhere!
 			Any fonts you produce out of this app are 100% YOURS and YOURS only. I won't come knocking down your door asking
 			for royalties, don't worry.
