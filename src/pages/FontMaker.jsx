@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Font, Glyph, Path, parse as parseFont } from 'opentype.js'
 import { ArrowLeft, ArrowRight, Undo2, Redo2, X, Space, TriangleAlert, Plus, PenLine, Crosshair, Minus, Upload } from 'lucide-react'
+import { loadStroke, saveStroke, clearStroke } from '../glyphDB.js'
 
 const CANVAS_SIZE = 480
 const UNITS_PER_EM = 1000
@@ -157,54 +158,6 @@ async function loadCustomGuideFont(file) {
   document.fonts.add(face)
   customGuideFontFace = face
   return `"${CUSTOM_GUIDE_FONT_NAME}"`
-}
-
-function charStorageKey(char) {
-  return `fontmaker-glyph-${char.charCodeAt(0)}`
-}
-
-function loadStroke(char) {
-  const key = charStorageKey(char)
-  const raw = localStorage.getItem(key)
-  if (!raw) return []
-  let parsed
-  try {
-    parsed = JSON.parse(raw)
-  } catch (err) {
-    console.error(`Corrupt glyph data for "${char}", clearing entry.`, err)
-    localStorage.removeItem(key)
-    return []
-  }
-  if (!Array.isArray(parsed)) {
-    console.error(`Unexpected glyph data shape for "${char}", clearing entry.`)
-    localStorage.removeItem(key)
-    return []
-  }
-  return parsed
-}
-
-function saveStroke(char, strokes) {
-  const key = charStorageKey(char)
-  let serialized
-  try {
-    serialized = JSON.stringify(strokes)
-  } catch (err) {
-    console.error(`Failed to serialize glyph "${char}".`, err)
-    return { ok: false, error: err }
-  }
-  try {
-    localStorage.setItem(key, serialized)
-    return { ok: true }
-  } catch (err) {
-    console.error(`Failed to save glyph "${char}" to localStorage.`, err)
-    return { ok: false, error: err }
-  }
-}
-
-function clearStroke(char) {
-  try {
-    localStorage.removeItem(charStorageKey(char))
-  } catch {}
 }
 
 const TRACE_SUPERSAMPLE = 2
@@ -1074,8 +1027,7 @@ function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialStrokes,
     trimmed.push(strokes)
     historyRef.current = trimmed
     historyIndexRef.current = trimmed.length - 1
-    const result = saveStroke(char, strokes)
-    onCommit(char, strokes, result.ok)
+    saveStroke(char, strokes).then(result => onCommit(char, strokes, result.ok))
     redraw()
   }
 
@@ -1083,8 +1035,7 @@ function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialStrokes,
     if (historyIndexRef.current <= 0) return
     historyIndexRef.current -= 1
     const strokes = historyRef.current[historyIndexRef.current]
-    const result = saveStroke(char, strokes)
-    onCommit(char, strokes, result.ok)
+    saveStroke(char, strokes).then(result => onCommit(char, strokes, result.ok))
     redraw()
   }, [char, redraw])
 
@@ -1092,8 +1043,7 @@ function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialStrokes,
     if (historyIndexRef.current >= historyRef.current.length - 1) return
     historyIndexRef.current += 1
     const strokes = historyRef.current[historyIndexRef.current]
-    const result = saveStroke(char, strokes)
-    onCommit(char, strokes, result.ok)
+    saveStroke(char, strokes).then(result => onCommit(char, strokes, result.ok))
     redraw()
   }, [char, redraw])
 
@@ -1426,11 +1376,6 @@ export default function FontMaker() {
     let cancelled = false
     let worker = null
 
-    const entries = ALL_CHARS.map(char => ({
-      char,
-      raw: localStorage.getItem(charStorageKey(char)),
-    }))
-
     const finish = (drawn) => {
       if (cancelled) return
       setDrawnChars(drawn)
@@ -1451,15 +1396,14 @@ export default function FontMaker() {
       }
       for (const char of corruptChars) {
         console.error(`Corrupt glyph data for "${char}", clearing entry.`)
-        localStorage.removeItem(charStorageKey(char))
+        clearStroke(char)
       }
       finish(drawn)
     }
 
-    const runMainThreadFallback = () => {
+    const runMainThreadFallback = (entries) => {
       const drawn = new Set()
-      for (const { char, raw } of entries) {
-        const strokes = loadStroke(char)
+      for (const { char, strokes } of entries) {
         strokesRefs.current[char] = strokes
         if (strokes.length > 0) drawn.add(char)
       }
@@ -1467,34 +1411,49 @@ export default function FontMaker() {
       finish(drawn)
     }
 
-    if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined') {
-      runMainThreadFallback()
-      return () => { cancelled = true }
-    }
-
-    try {
-      worker = new Worker(new URL('/glyphWorker.js', import.meta.url))
-    } catch {
-      runMainThreadFallback()
-      return () => { cancelled = true }
-    }
-
-    worker.onmessage = (e) => {
-      if (cancelled) return
-      const { type, done, total, results } = e.data
-      if (type === 'progress') {
-        setBootProgress(Math.round((done / total) * 100))
-      } else if (type === 'complete') {
-        applyResults(results)
+    const boot = async () => {
+      let entries
+      try {
+        entries = await Promise.all(ALL_CHARS.map(async char => ({
+          char,
+          strokes: await loadStroke(char),
+        })))
+      } catch {
+        entries = ALL_CHARS.map(char => ({ char, strokes: [] }))
       }
-    }
-
-    worker.onerror = () => {
       if (cancelled) return
-      runMainThreadFallback()
+
+      if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined') {
+        runMainThreadFallback(entries)
+        return
+      }
+
+      try {
+        worker = new Worker(new URL('/glyphWorker.js', import.meta.url))
+      } catch {
+        runMainThreadFallback(entries)
+        return
+      }
+
+      worker.onmessage = (e) => {
+        if (cancelled) return
+        const { type, done, total, results } = e.data
+        if (type === 'progress') {
+          setBootProgress(Math.round((done / total) * 100))
+        } else if (type === 'complete') {
+          applyResults(results)
+        }
+      }
+
+      worker.onerror = () => {
+        if (cancelled) return
+        runMainThreadFallback(entries)
+      }
+
+      worker.postMessage({ type: 'process', jobId: 1, entries, brushSize: brushSizeRef.current })
     }
 
-    worker.postMessage({ type: 'process', jobId: 1, entries, brushSize: brushSizeRef.current })
+    boot()
 
     return () => {
       cancelled = true
@@ -1694,7 +1653,7 @@ export default function FontMaker() {
       for (const char of importedChars) {
         const strokes = [imported[char]]
         strokesRefs.current[char] = strokes
-        const result = saveStroke(char, strokes)
+        const result = await saveStroke(char, strokes)
         if (!result.ok) failedChars.push(char)
       }
       setDrawnChars(prev => {

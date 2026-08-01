@@ -275,19 +275,14 @@ self.onmessage = (e) => {
   const processChunk = () => {
     const end = Math.min(i + chunkSize, total)
     for (; i < end; i++) {
-      const { char, raw } = entries[i]
+      const { char, strokes: rawStrokes } = entries[i]
       let strokes = []
       let corrupt = false
 
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw)
-          if (Array.isArray(parsed)) {
-            strokes = parsed
-          } else {
-            corrupt = true
-          }
-        } catch {
+      if (rawStrokes !== undefined && rawStrokes !== null) {
+        if (Array.isArray(rawStrokes)) {
+          strokes = rawStrokes
+        } else {
           corrupt = true
         }
       }
