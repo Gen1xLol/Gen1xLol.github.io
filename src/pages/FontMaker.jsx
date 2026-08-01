@@ -496,6 +496,36 @@ function measureGlyphWidth(strokes, brushSize) {
   return glyphAdvanceWidth
 }
 
+function measureGlyphVerticalExtent(strokes, brushSize) {
+  if (!strokes || strokes.length === 0) return null
+  const { path } = buildGlyphPathCached(strokes, brushSize, 50)
+  const box = path.getBoundingBox()
+  if (box.y1 === box.y2) return null
+  return { minY: box.y1, maxY: box.y2 }
+}
+
+function computeTextMetrics(strokesRefs, brushSize, fontSize) {
+  const fontScale = fontSize / UNITS_PER_EM
+  let minY = Infinity
+  let maxY = -Infinity
+  let found = false
+  for (const char of ALL_CHARS) {
+    const extent = measureGlyphVerticalExtent(strokesRefs.current[char], brushSize)
+    if (!extent) continue
+    found = true
+    minY = Math.min(minY, extent.minY)
+    maxY = Math.max(maxY, extent.maxY)
+  }
+  if (!found) {
+    return { baselineOffset: fontSize * 0.85, lineHeight: fontSize * 1.35, descenderDepth: fontSize * 1.35 }
+  }
+  const glyphHeight = (maxY - minY) * fontScale
+  const lineHeight = Math.round(glyphHeight + Math.max(fontSize * 0.15, 8))
+  const baselineOffset = Math.round(maxY * fontScale + 10)
+  const descenderDepth = -minY * fontScale
+  return { baselineOffset, lineHeight, descenderDepth }
+}
+
 function layoutTextToLines(text, strokesRefs, brushSize, fontSize, options = {}) {
   const { maxWidth = Infinity, lineHeight = fontSize * 1.3 } = options
   const advanceWidth = Math.round(UNITS_PER_EM * 0.62)
@@ -941,15 +971,19 @@ function FontPreview({ strokesRefs, brushSize, drawnChars, version }) {
       return
     }
 
+    const metrics = computeTextMetrics(strokesRefs, brushSize, PREVIEW_FONT_SIZE)
     ctx.save()
-    ctx.translate(4, PREVIEW_FONT_SIZE * 0.85 + 8)
+    ctx.translate(4, metrics.baselineOffset)
     const layout = renderTextToCanvas(ctx, PREVIEW_SAMPLE, strokesRefs, brushSize, PREVIEW_FONT_SIZE, {
       maxWidth: width - 8,
-      lineHeight: PREVIEW_FONT_SIZE * 1.35,
+      lineHeight: metrics.lineHeight,
     })
     ctx.restore()
 
-    const requiredHeight = layout.height + PREVIEW_FONT_SIZE * 0.85 + 16
+    const requiredHeight = metrics.baselineOffset
+      + (layout.lines.length - 1) * metrics.lineHeight
+      + metrics.descenderDepth
+      + 10
     if (Math.abs(requiredHeight - height) > 1) setHeight(requiredHeight)
   }, [strokesRefs, brushSize, drawnChars, version, height])
 
@@ -982,15 +1016,19 @@ function TypeBox({ strokesRefs, brushSize, drawnChars, version }) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, width, drawHeight)
 
+    const metrics = computeTextMetrics(strokesRefs, brushSize, typeFontSize)
     ctx.save()
-    ctx.translate(10, typeFontSize * 0.85 + 12)
+    ctx.translate(10, metrics.baselineOffset)
     const layout = renderTextToCanvas(ctx, text || '', strokesRefs, brushSize, typeFontSize, {
       maxWidth: width - 20,
-      lineHeight: typeFontSize * 1.35,
+      lineHeight: metrics.lineHeight,
     })
     ctx.restore()
 
-    const requiredHeight = layout.height + typeFontSize * 0.85 + 24
+    const requiredHeight = metrics.baselineOffset
+      + (layout.lines.length - 1) * metrics.lineHeight
+      + metrics.descenderDepth
+      + 12
     if (Math.abs(requiredHeight - height) > 1) setHeight(requiredHeight)
   }, [text, strokesRefs, brushSize, drawnChars, version, height])
 
