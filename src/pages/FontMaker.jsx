@@ -132,6 +132,19 @@ function loadSmoothIntensity() {
   return 50
 }
 
+const KERNING_STRENGTH_STORAGE_KEY = 'fontmaker-kerning-strength'
+const DEFAULT_KERNING_STRENGTH = 100
+
+function loadKerningStrength() {
+  try {
+    const raw = localStorage.getItem(KERNING_STRENGTH_STORAGE_KEY)
+    if (raw === null || raw === '') return DEFAULT_KERNING_STRENGTH
+    const stored = Number(raw)
+    if (Number.isFinite(stored) && stored >= 0 && stored <= 200) return stored
+  } catch {}
+  return DEFAULT_KERNING_STRENGTH
+}
+
 const GUIDE_OPACITY_STORAGE_KEY = 'fontmaker-guide-opacity'
 
 function loadGuideOpacity() {
@@ -652,6 +665,130 @@ function measureGlyphWidth(strokes, brushSize) {
   return glyphAdvanceWidth
 }
 
+const KERN_SAMPLE_STEPS = 40
+const KERN_TARGET_GAP = UNITS_PER_EM * 0.045
+const KERN_MAX_ADJUST = UNITS_PER_EM * 0.14
+
+function glyphSideProfiles(path, advanceWidth) {
+  const box = path.getBoundingBox()
+  if (box.x1 === box.x2 || box.y1 === box.y2) return null
+
+  const polygons = []
+  let current = []
+  let cursor = { x: 0, y: 0 }
+  let start = { x: 0, y: 0 }
+  for (const cmd of path.commands) {
+    if (cmd.type === 'M') {
+      if (current.length > 0) polygons.push(current)
+      cursor = { x: cmd.x, y: cmd.y }
+      start = cursor
+      current = [cursor]
+    } else if (cmd.type === 'L') {
+      cursor = { x: cmd.x, y: cmd.y }
+      current.push(cursor)
+    } else if (cmd.type === 'Q') {
+      const pts = []
+      flattenQuadTo(cursor, { x: cmd.x1, y: cmd.y1 }, { x: cmd.x, y: cmd.y }, 6, pts)
+      current.push(...pts)
+      cursor = { x: cmd.x, y: cmd.y }
+    } else if (cmd.type === 'C') {
+      const pts = []
+      flattenCubicTo(cursor, { x: cmd.x1, y: cmd.y1 }, { x: cmd.x2, y: cmd.y2 }, { x: cmd.x, y: cmd.y }, 6, pts)
+      current.push(...pts)
+      cursor = { x: cmd.x, y: cmd.y }
+    } else if (cmd.type === 'Z') {
+      if (current.length > 0) polygons.push(current)
+      current = []
+      cursor = start
+    }
+  }
+  if (current.length > 0) polygons.push(current)
+  if (polygons.length === 0) return null
+
+  const left = new Array(KERN_SAMPLE_STEPS).fill(Infinity)
+  const right = new Array(KERN_SAMPLE_STEPS).fill(-Infinity)
+  const yTop = box.y2
+  const yBottom = box.y1
+  const ySpan = yTop - yBottom
+
+  for (let i = 0; i < KERN_SAMPLE_STEPS; i++) {
+    const t = (i + 0.5) / KERN_SAMPLE_STEPS
+    const y = yBottom + t * ySpan
+    for (const poly of polygons) {
+      for (let k = 0; k < poly.length; k++) {
+        const a = poly[k]
+        const b = poly[(k + 1) % poly.length]
+        if ((a.y <= y && b.y > y) || (b.y <= y && a.y > y)) {
+          const x = a.x + ((y - a.y) / (b.y - a.y)) * (b.x - a.x)
+          if (x < left[i]) left[i] = x
+          if (x > right[i]) right[i] = x
+        }
+      }
+    }
+  }
+
+  return { left, right, box, advanceWidth }
+}
+
+function computeAutoKerningValue(leftProfile, rightProfile) {
+  if (!leftProfile || !rightProfile) return 0
+
+  let minGap = Infinity
+  let sawOverlap = false
+  for (let i = 0; i < KERN_SAMPLE_STEPS; i++) {
+    const leftEdge = leftProfile.right[i]
+    const rightEdge = rightProfile.left[i]
+    if (leftEdge === -Infinity || rightEdge === Infinity) continue
+    const gap = (leftProfile.advanceWidth - leftEdge) + rightEdge
+    if (gap < minGap) minGap = gap
+    sawOverlap = true
+  }
+  if (!sawOverlap) return 0
+
+  const adjust = KERN_TARGET_GAP - minGap
+  return Math.max(-KERN_MAX_ADJUST, Math.min(KERN_MAX_ADJUST, Math.round(adjust)))
+}
+
+function computeAutoKerningTable(strokesRefs, brushSize) {
+  const profiles = {}
+  for (const char of ALL_CHARS) {
+    const strokes = strokesRefs.current[char]
+    if (!strokes || strokes.length === 0) continue
+    const { path, advanceWidth } = buildGlyphPathCached(strokes, brushSize, 50)
+    profiles[char] = glyphSideProfiles(path, advanceWidth)
+  }
+
+  const table = {}
+  for (const l of ALL_CHARS) {
+    if (!profiles[l]) continue
+    for (const r of ALL_CHARS) {
+      if (!profiles[r]) continue
+      const value = computeAutoKerningValue(profiles[l], profiles[r])
+      if (value !== 0) table[`${l}|${r}`] = value
+    }
+  }
+  return table
+}
+
+const kerningTableCache = new WeakMap()
+
+function getKerningTableCached(strokesRefs, brushSize, version) {
+  let entry = kerningTableCache.get(strokesRefs)
+  if (entry && entry.brushSize === brushSize && entry.version === version) {
+    return entry.table
+  }
+  const table = computeAutoKerningTable(strokesRefs, brushSize)
+  kerningTableCache.set(strokesRefs, { brushSize, version, table })
+  return table
+}
+
+function getKerningAdjustment(kerningTable, kerningStrength, l, r) {
+  if (!kerningTable) return 0
+  const raw = kerningTable[`${l}|${r}`]
+  if (!raw) return 0
+  return Math.round(raw * (kerningStrength / 100))
+}
+
 function measureGlyphVerticalExtent(strokes, brushSize) {
   if (!strokes || strokes.length === 0) return null
   const { path } = buildGlyphPathCached(strokes, brushSize, 50)
@@ -683,7 +820,7 @@ function computeTextMetrics(strokesRefs, brushSize, fontSize) {
 }
 
 function layoutTextToLines(text, strokesRefs, brushSize, fontSize, options = {}) {
-  const { maxWidth = Infinity, lineHeight = fontSize * 1.3 } = options
+  const { maxWidth = Infinity, lineHeight = fontSize * 1.3, kerningTable = null, kerningStrength = 100 } = options
   const advanceWidth = Math.round(UNITS_PER_EM * 0.62)
   const spaceWidth = Math.round(UNITS_PER_EM * 0.5)
   const fontScale = fontSize / UNITS_PER_EM
@@ -698,9 +835,16 @@ function layoutTextToLines(text, strokesRefs, brushSize, fontSize, options = {})
     currentWidth = 0
   }
 
+  const kernBefore = (char) => {
+    if (current.length === 0) return 0
+    const prevChar = current[current.length - 1].char
+    return getKerningAdjustment(kerningTable, kerningStrength, prevChar, char)
+  }
+
   const pushChar = (char, w) => {
-    current.push({ char, w })
-    currentWidth += w * fontScale
+    const k = char === ' ' ? 0 : kernBefore(char)
+    current.push({ char, w, k })
+    currentWidth += (w + k) * fontScale
   }
 
   const wrapWord = (word) => {
@@ -708,7 +852,8 @@ function layoutTextToLines(text, strokesRefs, brushSize, fontSize, options = {})
     for (const char of word) {
       const strokes = strokesRefs.current[char]
       const w = measureGlyphWidth(strokes, brushSize)
-      if (currentWidth + w * fontScale > maxWidth && current.length > 0) flushLine()
+      const k = kernBefore(char)
+      if (currentWidth + (w + k) * fontScale > maxWidth && current.length > 0) flushLine()
       pushChar(char, w)
     }
   }
@@ -756,27 +901,29 @@ function layoutTextToLines(text, strokesRefs, brushSize, fontSize, options = {})
   return {
     lines,
     lineHeight,
-    width: lines.reduce((acc, line) => Math.max(acc, line.reduce((a, c) => a + c.w * fontScale, 0)), 0),
+    width: lines.reduce((acc, line) => Math.max(acc, line.reduce((a, c) => a + (c.w + c.k) * fontScale, 0)), 0),
     height: Math.max(lines.length, 1) * lineHeight,
   }
 }
 
 function renderTextToCanvas(ctx, text, strokesRefs, brushSize, fontSize, options = {}) {
-  const { color = '#e9e4f0', maxWidth = Infinity, lineHeight = fontSize * 1.3 } = options
+  const { color = '#e9e4f0', maxWidth = Infinity, lineHeight = fontSize * 1.3, kerningTable = null, kerningStrength = 100 } = options
   const spaceWidth = Math.round(UNITS_PER_EM * 0.5)
   const fontScale = fontSize / UNITS_PER_EM
 
   ctx.fillStyle = color
 
-  const layout = layoutTextToLines(text, strokesRefs, brushSize, fontSize, { maxWidth, lineHeight })
+  const layout = layoutTextToLines(text, strokesRefs, brushSize, fontSize, { maxWidth, lineHeight, kerningTable, kerningStrength })
 
   layout.lines.forEach((line, lineIndex) => {
     let penX = 0
-    for (const { char, w } of line) {
+    for (const { char, w, k } of line) {
       if (char === ' ') {
         penX += spaceWidth * fontScale
         continue
       }
+
+      penX += (k || 0) * fontScale
 
       const strokes = strokesRefs.current[char] || []
       if (strokes.length === 0) {
@@ -1255,7 +1402,7 @@ const PREVIEW_SAMPLE = 'The quick brown fox jumps over the lazy dog. 0123456789'
 const PREVIEW_HEIGHT = 200
 const PREVIEW_FONT_SIZE = 46
 
-function FontPreview({ strokesRefs, brushSize, drawnChars, version }) {
+function FontPreview({ strokesRefs, brushSize, drawnChars, version, kerningTable, kerningStrength }) {
   const canvasRef = useRef(null)
   const [height, setHeight] = useState(PREVIEW_HEIGHT)
   const [width, setWidth] = useState(0)
@@ -1303,6 +1450,8 @@ function FontPreview({ strokesRefs, brushSize, drawnChars, version }) {
       const layout = renderTextToCanvas(ctx, PREVIEW_SAMPLE, strokesRefs, brushSize, PREVIEW_FONT_SIZE, {
         maxWidth: drawWidth - 8,
         lineHeight: metrics.lineHeight,
+        kerningTable,
+        kerningStrength,
       })
       ctx.restore()
 
@@ -1314,7 +1463,7 @@ function FontPreview({ strokesRefs, brushSize, drawnChars, version }) {
     })
 
     return () => window.cancelAnimationFrame(raf)
-  }, [strokesRefs, brushSize, drawnChars, version, height, width, dprTick])
+  }, [strokesRefs, brushSize, drawnChars, version, height, width, dprTick, kerningTable, kerningStrength])
 
   return (
     <div className="fm-preview">
@@ -1324,7 +1473,7 @@ function FontPreview({ strokesRefs, brushSize, drawnChars, version }) {
   )
 }
 
-function TypeBox({ strokesRefs, brushSize, drawnChars, version }) {
+function TypeBox({ strokesRefs, brushSize, drawnChars, version, kerningTable, kerningStrength }) {
   const [text, setText] = useState('Type something!')
   const canvasRef = useRef(null)
   const wrapRef = useRef(null)
@@ -1370,6 +1519,8 @@ function TypeBox({ strokesRefs, brushSize, drawnChars, version }) {
       const layout = renderTextToCanvas(ctx, text || '', strokesRefs, brushSize, typeFontSize, {
         maxWidth: drawWidth - 20,
         lineHeight: metrics.lineHeight,
+        kerningTable,
+        kerningStrength,
       })
       ctx.restore()
 
@@ -1381,7 +1532,7 @@ function TypeBox({ strokesRefs, brushSize, drawnChars, version }) {
     })
 
     return () => window.cancelAnimationFrame(raf)
-  }, [text, strokesRefs, brushSize, drawnChars, version, height, width, dprTick])
+  }, [text, strokesRefs, brushSize, drawnChars, version, height, width, dprTick, kerningTable, kerningStrength])
 
   return (
     <div className="fm-typebox">
@@ -1417,6 +1568,7 @@ export default function FontMaker() {
   const [bootLoading, setBootLoading] = useState(true)
   const [bootProgress, setBootProgress] = useState(0)
   const [guideOpacity, setGuideOpacity] = useState(loadGuideOpacity)
+  const [kerningStrength, setKerningStrength] = useState(loadKerningStrength)
   const [customSymbols, setCustomSymbols] = useState(loadCustomSymbols)
   const [newSymbolInput, setNewSymbolInput] = useState('')
   const [symbolError, setSymbolError] = useState(null)
@@ -1571,6 +1723,12 @@ export default function FontMaker() {
       localStorage.setItem(GUIDE_OPACITY_STORAGE_KEY, String(guideOpacity))
     } catch {}
   }, [guideOpacity])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(KERNING_STRENGTH_STORAGE_KEY, String(kerningStrength))
+    } catch {}
+  }, [kerningStrength])
 
   useEffect(() => {
     setHasUnsavedChanges(saveErrorChars.size > 0)
@@ -1781,6 +1939,13 @@ export default function FontMaker() {
     return { label: '', posInGroup: 0, groupSize: 0 }
   }, [index])
 
+  const kerningTable = useMemo(
+    () => getKerningTableCached(strokesRefs, brushSize, resetVersion),
+    [strokesRefs, brushSize, resetVersion, drawnChars]
+  )
+
+  const handleResetKerning = () => setKerningStrength(DEFAULT_KERNING_STRENGTH)
+
   const buildFont = () => {
     const glyphs = []
     glyphs.push(new Glyph({
@@ -1828,6 +1993,25 @@ export default function FontMaker() {
       descender: DESCENDER,
       glyphs,
     })
+
+    const glyphIndexByChar = {}
+    for (const char of ALL_CHARS) {
+      const idx = font.charToGlyphIndex(char)
+      if (idx) glyphIndexByChar[char] = idx
+    }
+
+    const kerningPairs = {}
+    for (const l of ALL_CHARS) {
+      const li = glyphIndexByChar[l]
+      if (!li) continue
+      for (const r of ALL_CHARS) {
+        const ri = glyphIndexByChar[r]
+        if (!ri) continue
+        const value = getKerningAdjustment(kerningTable, kerningStrength, l, r)
+        if (value !== 0) kerningPairs[`${li},${ri}`] = value
+      }
+    }
+    font.kerningPairs = kerningPairs
 
     return font
   }
@@ -2023,6 +2207,30 @@ export default function FontMaker() {
             </div>
 
             <div className="fm-toolbar-group fm-toolbar-group--row3">
+              <label className="fm-toolbar-label">Auto kerning</label>
+              <input
+                type="range"
+                min="0"
+                max="200"
+                value={kerningStrength}
+                onChange={e => setKerningStrength(Number(e.target.value))}
+                className="fm-range"
+              />
+              <div className="fm-kerning-value-row">
+                <span className="fm-range-value">{kerningStrength}%</span>
+                <button
+                  className="fm-reset-kerning-btn"
+                  onClick={handleResetKerning}
+                  disabled={kerningStrength === DEFAULT_KERNING_STRENGTH}
+                  type="button"
+                  title="Reset to auto"
+                >
+                  <Locate size={12} />
+                </button>
+              </div>
+            </div>
+
+            <div className="fm-toolbar-group fm-toolbar-group--row3">
               <label className="fm-toolbar-label">Guide reference font</label>
               <button
                 className="fm-import-btn"
@@ -2097,6 +2305,8 @@ export default function FontMaker() {
           brushSize={brushSize}
           drawnChars={drawnChars}
           version={resetVersion}
+          kerningTable={kerningTable}
+          kerningStrength={kerningStrength}
         />
 
         <TypeBox
@@ -2104,6 +2314,8 @@ export default function FontMaker() {
           brushSize={brushSize}
           drawnChars={drawnChars}
           version={resetVersion}
+          kerningTable={kerningTable}
+          kerningStrength={kerningStrength}
         />
 
         <div className="fm-strip">

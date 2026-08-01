@@ -1220,6 +1220,41 @@ details[open] .gif-about-summary::before {
   gap: 10px;
 }
 
+.fm-kerning-value-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: end;
+  flex-shrink: 0;
+}
+
+.fm-reset-kerning-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.05), rgba(255,255,255,0) 55%);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--mid);
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset;
+  transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+}
+
+.fm-reset-kerning-btn:hover:not(:disabled) {
+  border-color: var(--purple-dim);
+  color: var(--purple-lt);
+}
+
+.fm-reset-kerning-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .fm-steady-slider-row .fm-range:disabled {
   opacity: 0.4;
   cursor: not-allowed;
