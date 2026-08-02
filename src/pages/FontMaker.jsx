@@ -2547,7 +2547,7 @@ export default function FontMaker() {
             So I began working on this font maker to massively simplify the process of making a font off your own handwriting.
 			You just draw in each box for the characters you want, and you have your own font, ready to be used anywhere!
 			Any fonts you produce out of this app are 100% YOURS and YOURS only. I won't come knocking down your door asking
-			for royalties, don't worry.
+			for royalties, don't worry :P
           </p>
 		  <p>
 		  I hope you enjoy this silly thing as much as I enjoyed making it :)
@@ -2556,6 +2556,23 @@ export default function FontMaker() {
 		  <p>
 		  Also shoutout to my friend <a href="https://ddededodediamante.vercel.app" target="_blank" rel="noopener">ddededodediamante</a> for helping develop this thing 🎉
 		  </p>
+        </div>
+      <div className="fm-about-section">
+          <div className="fm-about-title">How it works</div>
+          <p>
+            Alright. Yap session...
+            <br />
+            <i>INHAAAALE</i>
+          </p>
+          <p>
+            When you draw a glyph, Draw-A-Font records a series of points on a 480×480 canvas and stores that stroke data in the browser using IndexedDB so your progress is preserved between sessions. The guide letter underneath is rendered as a semi-transparent reference, and you can switch between a brush tool and a line tool; the line tool creates straight segments, while the brush tool captures freehand strokes. If you enable Steady Hand, the app resamples your stroke, simplifies it, and smooths it so small wobble and jitter are reduced before the glyph is used.
+          </p>
+          <p>
+            Once a glyph has strokes, it converts those strokes into vector outlines. It first rasterizes the drawing into a bitmap mask, traces the mask into polygon contours, simplifies those contours, and determines which ones are outer shapes and which are holes. Those contours are then converted into OpenType path commands and turned into a glyph path with a measured advance width, so the character has a proper shape and spacing behavior.
+          </p>
+          <p>
+            Finally, when you export, it packages everything into a downloadable font file using opentype.js. Each drawn glyph becomes a real OpenType glyph with its own path, advance width, and Unicode value, and the app also builds kerning pairs for the characters you have. The resulting file is exported as .ttf or .otf, so you can install it and use it in normal applications just like any other font.
+          </p>
         </div>
       </main>
     </>
