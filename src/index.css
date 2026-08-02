@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;700&display=swap');
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 svg { display: block; flex-shrink: 0; }
@@ -5,6 +7,11 @@ svg { display: block; flex-shrink: 0; }
 @font-face {
   font-family: "Gen1x Smooth";
   src: url(/assets/gen1x-smooth.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: "Gen1x Rough";
+  src: url(/assets/gen1x-rough.woff2) format('woff2');
 }
 
 :root {
@@ -1839,4 +1846,15 @@ details[open] .gif-about-summary::before {
     height: 26px;
     font-size: 12px;
   }
+}
+
+pre {
+  font-family: 'Fira Code', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  overflow-x: auto;
 }

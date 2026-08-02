@@ -45,11 +45,12 @@ export default function Home() {
         <div className="header-inner">
           <a className="site-name" href="#">gen1x</a>
           <nav>
-            <a href="#about" onClick={(e) => scrollToSection(e, 'about')}>about</a>
-            <a href="#projects" onClick={(e) => scrollToSection(e, 'projects')}>projects</a>
+            {/* <a href="#about" onClick={(e) => scrollToSection(e, 'about')}>about</a> */}
+            {/* <a href="#projects" onClick={(e) => scrollToSection(e, 'projects')}>projects</a> */}
             <Link to="/88x31">88x31</Link>
 			<a href="https://gen1xlol.github.io/Jarona-TTS" target="_blank" rel="noopener">Jarona TTS</a>
 			<Link to="/fontmaker">Draw-A-Font</Link>
+			<Link to="/myfont">My Font</Link>
           </nav>
         </div>
       </header>
