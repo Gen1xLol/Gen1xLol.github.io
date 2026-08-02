@@ -6,7 +6,7 @@ const demoSections = [
     title: 'what is this',
     body: (
       <p>
-        If you take a looksie over to the <Link to="fontmaker">Draw-A-Font</Link> page, you'll see that it's a utility I designed
+        If you take a looksie over to the <Link to="/fontmaker">Draw-A-Font</Link> page, you'll see that it's a utility I designed
 	    	to quickly create fonts based off your handwriting. Well, if you can connect two and two together, you'll know that this
 	    	is the font I designed with my own utility. Yeah, I know, shameless advertising.
         <br /><br />
