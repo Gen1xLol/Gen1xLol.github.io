@@ -783,6 +783,60 @@ function getKerningTableCached(strokesRefs, brushSize, version) {
   return table
 }
 
+const DEFAULT_SPACE_WIDTH = Math.round(UNITS_PER_EM * 0.32)
+const SPACE_WIDTH_FACTOR = 0.62
+
+function computeAutoSpaceWidth(strokesRefs, brushSize) {
+  let totalWidth = 0
+  let totalInset = 0
+  let count = 0
+
+  for (const char of ALL_CHARS) {
+    if (char === ' ') continue
+    const strokes = strokesRefs.current[char]
+    if (!strokes || strokes.length === 0) continue
+
+    const { path, advanceWidth } = buildGlyphPathCached(strokes, brushSize, 50)
+    const profile = glyphSideProfiles(path, advanceWidth)
+    if (!profile) continue
+
+    let rightMost = -Infinity
+    let leftMost = Infinity
+    for (let i = 0; i < KERN_SAMPLE_STEPS; i++) {
+      if (profile.right[i] !== -Infinity && profile.right[i] > rightMost) rightMost = profile.right[i]
+      if (profile.left[i] !== Infinity && profile.left[i] < leftMost) leftMost = profile.left[i]
+    }
+    if (rightMost === -Infinity || leftMost === Infinity) continue
+
+    const rightBearing = advanceWidth - rightMost
+    const leftBearing = leftMost
+    totalInset += rightBearing + leftBearing
+    totalWidth += advanceWidth
+    count++
+  }
+
+  if (count === 0) return DEFAULT_SPACE_WIDTH
+
+  const avgWidth = totalWidth / count
+  const avgInset = totalInset / count
+  const inkWidth = Math.max(avgWidth - avgInset, avgWidth * 0.3)
+  const spaceWidth = inkWidth * SPACE_WIDTH_FACTOR + avgInset
+
+  return Math.round(Math.min(Math.max(spaceWidth, UNITS_PER_EM * 0.15), UNITS_PER_EM * 0.55))
+}
+
+const spaceWidthCache = new WeakMap()
+
+function getAutoSpaceWidthCached(strokesRefs, brushSize, version) {
+  let entry = spaceWidthCache.get(strokesRefs)
+  if (entry && entry.brushSize === brushSize && entry.version === version) {
+    return entry.width
+  }
+  const width = computeAutoSpaceWidth(strokesRefs, brushSize)
+  spaceWidthCache.set(strokesRefs, { brushSize, version, width })
+  return width
+}
+
 function getKerningAdjustment(kerningTable, kerningStrength, l, r) {
   if (!kerningTable) return 0
   const raw = kerningTable[`${l}|${r}`]
@@ -988,9 +1042,7 @@ function computeTextMetrics(strokesRefs, brushSize, fontSize) {
 }
 
 function layoutTextToLines(text, strokesRefs, brushSize, fontSize, options = {}) {
-  const { maxWidth = Infinity, lineHeight = fontSize * 1.3, kerningTable = null, kerningStrength = 100 } = options
-  const advanceWidth = Math.round(UNITS_PER_EM * 0.62)
-  const spaceWidth = Math.round(UNITS_PER_EM * 0.5)
+  const { maxWidth = Infinity, lineHeight = fontSize * 1.3, kerningTable = null, kerningStrength = 100, spaceWidth = DEFAULT_SPACE_WIDTH } = options
   const fontScale = fontSize / UNITS_PER_EM
 
   const lines = []
@@ -1075,13 +1127,12 @@ function layoutTextToLines(text, strokesRefs, brushSize, fontSize, options = {})
 }
 
 function renderTextToCanvas(ctx, text, strokesRefs, brushSize, fontSize, options = {}) {
-  const { color = '#e9e4f0', maxWidth = Infinity, lineHeight = fontSize * 1.3, kerningTable = null, kerningStrength = 100 } = options
-  const spaceWidth = Math.round(UNITS_PER_EM * 0.5)
+  const { color = '#e9e4f0', maxWidth = Infinity, lineHeight = fontSize * 1.3, kerningTable = null, kerningStrength = 100, spaceWidth = DEFAULT_SPACE_WIDTH } = options
   const fontScale = fontSize / UNITS_PER_EM
 
   ctx.fillStyle = color
 
-  const layout = layoutTextToLines(text, strokesRefs, brushSize, fontSize, { maxWidth, lineHeight, kerningTable, kerningStrength })
+  const layout = layoutTextToLines(text, strokesRefs, brushSize, fontSize, { maxWidth, lineHeight, kerningTable, kerningStrength, spaceWidth })
 
   layout.lines.forEach((line, lineIndex) => {
     let penX = 0
@@ -1598,7 +1649,7 @@ const PREVIEW_SAMPLE = 'The quick brown fox jumps over the lazy dog. 0123456789'
 const PREVIEW_HEIGHT = 200
 const PREVIEW_FONT_SIZE = 46
 
-function FontPreview({ strokesRefs, brushSize, drawnChars, version, kerningTable, kerningStrength }) {
+function FontPreview({ strokesRefs, brushSize, drawnChars, version, kerningTable, kerningStrength, spaceWidth }) {
   const canvasRef = useRef(null)
   const [height, setHeight] = useState(PREVIEW_HEIGHT)
   const [width, setWidth] = useState(0)
@@ -1648,6 +1699,7 @@ function FontPreview({ strokesRefs, brushSize, drawnChars, version, kerningTable
         lineHeight: metrics.lineHeight,
         kerningTable,
         kerningStrength,
+        spaceWidth,
       })
       ctx.restore()
 
@@ -1659,7 +1711,7 @@ function FontPreview({ strokesRefs, brushSize, drawnChars, version, kerningTable
     })
 
     return () => window.cancelAnimationFrame(raf)
-  }, [strokesRefs, brushSize, drawnChars, version, height, width, dprTick, kerningTable, kerningStrength])
+  }, [strokesRefs, brushSize, drawnChars, version, height, width, dprTick, kerningTable, kerningStrength, spaceWidth])
 
   return (
     <div className="fm-preview">
@@ -1669,7 +1721,7 @@ function FontPreview({ strokesRefs, brushSize, drawnChars, version, kerningTable
   )
 }
 
-function TypeBox({ strokesRefs, brushSize, drawnChars, version, kerningTable, kerningStrength }) {
+function TypeBox({ strokesRefs, brushSize, drawnChars, version, kerningTable, kerningStrength, spaceWidth }) {
   const [text, setText] = useState('Type something!')
   const canvasRef = useRef(null)
   const wrapRef = useRef(null)
@@ -1717,6 +1769,7 @@ function TypeBox({ strokesRefs, brushSize, drawnChars, version, kerningTable, ke
         lineHeight: metrics.lineHeight,
         kerningTable,
         kerningStrength,
+        spaceWidth,
       })
       ctx.restore()
 
@@ -1728,7 +1781,7 @@ function TypeBox({ strokesRefs, brushSize, drawnChars, version, kerningTable, ke
     })
 
     return () => window.cancelAnimationFrame(raf)
-  }, [text, strokesRefs, brushSize, drawnChars, version, height, width, dprTick, kerningTable, kerningStrength])
+  }, [text, strokesRefs, brushSize, drawnChars, version, height, width, dprTick, kerningTable, kerningStrength, spaceWidth])
 
   return (
     <div className="fm-typebox">
@@ -2140,6 +2193,11 @@ export default function FontMaker() {
     [strokesRefs, brushSize, resetVersion, drawnChars]
   )
 
+  const spaceWidth = useMemo(
+    () => getAutoSpaceWidthCached(strokesRefs, brushSize, resetVersion),
+    [strokesRefs, brushSize, resetVersion, drawnChars]
+  )
+
   const handleResetKerning = () => setKerningStrength(DEFAULT_KERNING_STRENGTH)
 
   const buildFont = () => {
@@ -2154,7 +2212,7 @@ export default function FontMaker() {
     const spaceGlyph = new Glyph({
       name: 'space',
       unicode: 32,
-      advanceWidth: Math.round(UNITS_PER_EM * 0.5),
+      advanceWidth: spaceWidth,
       path: new Path(),
     })
     glyphs.push(spaceGlyph)
@@ -2504,6 +2562,7 @@ export default function FontMaker() {
           version={resetVersion}
           kerningTable={kerningTable}
           kerningStrength={kerningStrength}
+          spaceWidth={spaceWidth}
         />
 
         <TypeBox
@@ -2513,6 +2572,7 @@ export default function FontMaker() {
           version={resetVersion}
           kerningTable={kerningTable}
           kerningStrength={kerningStrength}
+          spaceWidth={spaceWidth}
         />
 
         <div className="fm-strip">
