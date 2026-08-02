@@ -89,23 +89,25 @@ export default function Home() {
             <br /><br />
             I really like the challenging parts in programming. I like looking at things from different angles, trying to piece things together. I hope this doesn't sound pretentious lol
             <br />
-			I also like playing videogames from time to time. I'm REALLY into UNDERTALE and DELTARUNE :D
-			<br /><br />
+            I also like playing videogames from time to time. I'm REALLY into UNDERTALE and DELTARUNE :D
+            <br />
+            I like to dabble into a LOT of different territories. I even made a font based off my handwriting! You can check it out <Link to="myfont">here</Link>.
+            <br /><br />
             I'm also a "writer" <small style={{ color: 'var(--soft)' }}>(I don't have much experience...)</small>
             <br />Here's <a href="https://bit.ly/4vrdkiM" target="_blank" rel="noopener">my poetry collection</a> if you want to see what I've written so far.
             <br /><br />
             Also, I LOVE meeting new people!! If you wanna talk to me, just add me at <span><a href="https://discord.com/users/1264445751723823245" target="_blank" rel="noopener">gen1x_loll</a></span> on Discord! I don't bite :D
             <br />
-			I'm taken and I have <a href="https://x.com/WinkMouse350" target="_blank" rel="noopener">the best boyfriend ever</a> {"<3"}
-			<br />
-			Also, special thanks to Ash for the "imsogay.me" subdomain :D
-			<br /><br />
+            I'm taken and I have <a href="https://x.com/WinkMouse350" target="_blank" rel="noopener">the best boyfriend ever</a> {"<3"}
+            <br />
+            Also, special thanks to my friend doodles for the "imsogay.me" subdomain :D
+            <br /><br />
             <Link to="/q&a">Check out my totally real FAQ!</Link>
             <br />
             <Link to="/88x31">Browse my 88x31 GIF collection!</Link>
-			<br />
+            <br />
             <a href="https://gen1xlol.github.io/Jarona-TTS" target="_blank" rel="noopener">Try Jarona TTS!</a> (slight DELTARUNE spoilers...)
-			<br />
+            <br />
             <Link to="/fontmaker">Draw your own font in Draw-A-Font!</Link>
           </p>
         </div>
