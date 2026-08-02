@@ -1267,7 +1267,31 @@ function snapAngle(from, to) {
   }
 }
 
-function centerStrokes(strokes) {
+function measureGuideGlyphBounds(char, guideFont) {
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+  ctx.font = `${CANVAS_SIZE * 0.72}px ${guideFont}`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  const originX = CANVAS_SIZE / 2
+  const originY = CANVAS_SIZE / 2 + CANVAS_SIZE * 0.04
+  const metrics = ctx.measureText(char)
+  const left = metrics.actualBoundingBoxLeft
+  const right = metrics.actualBoundingBoxRight
+  const ascent = metrics.actualBoundingBoxAscent
+  const descent = metrics.actualBoundingBoxDescent
+  if (![left, right, ascent, descent].every(Number.isFinite) || left + right <= 0 || ascent + descent <= 0) {
+    return null
+  }
+  return {
+    minX: originX - left,
+    maxX: originX + right,
+    minY: originY - ascent,
+    maxY: originY + descent,
+  }
+}
+
+function centerStrokes(strokes, guideBounds = null) {
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
   let found = false
 
@@ -1295,8 +1319,11 @@ function centerStrokes(strokes) {
 
   if (!found) return strokes
 
-  const shiftX = CANVAS_SIZE / 2 - (minX + maxX) / 2
-  const shiftY = CANVAS_SIZE / 2 - (minY + maxY) / 2
+  const targetX = guideBounds ? (guideBounds.minX + guideBounds.maxX) / 2 : CANVAS_SIZE / 2
+  const targetY = guideBounds ? (guideBounds.minY + guideBounds.maxY) / 2 : CANVAS_SIZE / 2
+
+  const shiftX = targetX - (minX + maxX) / 2
+  const shiftY = targetY - (minY + maxY) / 2
   if (Math.abs(shiftX) < 0.5 && Math.abs(shiftY) < 0.5) return strokes
 
   const shiftPt = (p) => ({ x: p.x + shiftX, y: p.y + shiftY })
@@ -1384,9 +1411,10 @@ function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialStrokes,
   }, [char, redraw])
 
   const handleCenter = useCallback(() => {
-    const centered = centerStrokes(currentStrokes())
+    const guideBounds = guideOpacity > 0 ? measureGuideGlyphBounds(char, guideFont) : null
+    const centered = centerStrokes(currentStrokes(), guideBounds)
     if (centered !== currentStrokes()) pushHistory(centered)
-  }, [char])
+  }, [char, guideFont, guideOpacity])
 
   useEffect(() => {
     const handleKeyDown = (e) => {
