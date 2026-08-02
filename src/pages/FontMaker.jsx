@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Font, Glyph, Path, parse as parseFont } from 'opentype.js'
 import { ArrowLeft, ArrowRight, Undo2, Redo2, X, Space, TriangleAlert, Plus, PenLine, Locate, Minus, Upload, Trash2 } from 'lucide-react'
 import { loadStroke, saveStroke, clearStroke } from '../glyphDB.js'
+import '../fontmaker.css'
 
 const CANVAS_SIZE = 480
 const UNITS_PER_EM = 1000

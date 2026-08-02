@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import ExternalIcon from '../components/ExternalIcon.jsx'
 import MouseTooltip from '../components/MouseTooltip.jsx'
 import argentinaFlag from '../argentina.png'
+import '../home.css'
 
 function calcAge() {
   const birth = new Date(Date.UTC(2010, 2, 16, 15, 27, 0))

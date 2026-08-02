@@ -1,0 +1,19 @@
+.qa-container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+.qa-item {
+  border-left: 2px solid var(--purple-dim);
+  padding-left: 20px;
+}
+.question {
+  font-weight: 500;
+  color: var(--text);
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+.answer {
+  color: var(--mid);
+  font-size: 15px;
+}
