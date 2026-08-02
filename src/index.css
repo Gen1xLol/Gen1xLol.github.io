@@ -4,7 +4,7 @@ svg { display: block; flex-shrink: 0; }
 
 @font-face {
   font-family: "Gen1x Smooth";
-  src: url(./gen1x-smooth.woff2) format('woff2');
+  src: url(/assets/gen1x-smooth.woff2) format('woff2');
 }
 
 :root {
