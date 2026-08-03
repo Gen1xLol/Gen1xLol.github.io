@@ -1088,10 +1088,10 @@ function makeGposTableBuffer(kerningPairs) {
   return out
 }
 
-function injectKernTable(arrayBuffer, kerningPairs) {
+function injectKernTable(arrayBuffer, kerningPairs, lineMetrics = null) {
   const kernData = makeKernTableBuffer(kerningPairs)
   const gposData = makeGposTableBuffer(kerningPairs)
-  if (!kernData && !gposData) return arrayBuffer
+  if (!kernData && !gposData && !lineMetrics) return arrayBuffer
 
   const src = new DataView(arrayBuffer)
   const sfntVersion = src.getUint32(0)
@@ -1106,6 +1106,26 @@ function injectKernTable(arrayBuffer, kerningPairs) {
     const offset = src.getUint32(rec + 8)
     const length = src.getUint32(rec + 12)
     tables.push({ tag, offset, length, data: arrayBuffer.slice(offset, offset + length) })
+  }
+
+  if (lineMetrics) {
+    for (const t of tables) {
+      if (t.tag === 'hhea' && t.data.byteLength >= 36) {
+        const dv = new DataView(t.data)
+        dv.setInt16(4, lineMetrics.ascender)
+        dv.setInt16(6, lineMetrics.descender)
+        dv.setInt16(8, lineMetrics.lineGap)
+        t.checksum = computeTableChecksum(new Uint8Array(t.data))
+      } else if (t.tag === 'OS/2' && t.data.byteLength >= 78) {
+        const dv = new DataView(t.data)
+        dv.setInt16(68, lineMetrics.ascender)
+        dv.setInt16(70, lineMetrics.descender)
+        dv.setInt16(72, lineMetrics.lineGap)
+        dv.setUint16(74, Math.max(0, lineMetrics.ascender))
+        dv.setUint16(76, Math.max(0, -lineMetrics.descender))
+        t.checksum = computeTableChecksum(new Uint8Array(t.data))
+      }
+    }
   }
 
   if (kernData) {
@@ -1244,7 +1264,8 @@ function computeTextMetrics(strokesRefs, brushSize, fontSize) {
 }
 
 function layoutTextToLines(text, strokesRefs, brushSize, fontSize, options = {}) {
-  const { maxWidth = Infinity, lineHeight = fontSize * 1.3, kerningTable = null, kerningStrength = 100, spaceWidth = DEFAULT_SPACE_WIDTH } = options
+  const calculatedLineHeight = options.lineHeight || computeTextMetrics(strokesRefs, brushSize, fontSize).lineHeight
+  const { maxWidth = Infinity, lineHeight = calculatedLineHeight, kerningTable = null, kerningStrength = 100, spaceWidth = DEFAULT_SPACE_WIDTH } = options
   const fontScale = fontSize / UNITS_PER_EM
 
   const lines = []
@@ -2441,14 +2462,44 @@ export default function FontMaker() {
       throw new Error('Draw at least one character before exporting.')
     }
 
+    let minY = Infinity
+    let maxY = -Infinity
+    let found = false
+    for (const char of ALL_CHARS) {
+      const extent = measureGlyphVerticalExtent(strokesRefs.current[char], brushSize)
+      if (!extent) continue
+      found = true
+      minY = Math.min(minY, extent.minY)
+      maxY = Math.max(maxY, extent.maxY)
+    }
+
+    const calcAscender = found ? Math.max(ASCENDER, Math.round(maxY)) : ASCENDER
+    const calcDescender = found ? Math.min(DESCENDER, Math.round(minY)) : DESCENDER
+    const calcGlyphHeight = found ? (maxY - minY) : (ASCENDER - DESCENDER)
+    const calcLineHeight = Math.round(calcGlyphHeight + Math.max(UNITS_PER_EM * 0.15, 150))
+    const calcLineGap = Math.max(0, Math.round(calcLineHeight - (calcAscender - calcDescender)))
+
     const font = new Font({
       familyName: fontName || 'My Font',
       styleName: 'Regular',
       unitsPerEm: UNITS_PER_EM,
-      ascender: ASCENDER,
-      descender: DESCENDER,
+      ascender: calcAscender,
+      descender: calcDescender,
       glyphs,
     })
+
+    if (!font.tables) font.tables = {}
+    if (!font.tables.hhea) font.tables.hhea = {}
+    font.tables.hhea.ascender = calcAscender
+    font.tables.hhea.descender = calcDescender
+    font.tables.hhea.lineGap = calcLineGap
+
+    if (!font.tables.os2) font.tables.os2 = {}
+    font.tables.os2.sTypoAscender = calcAscender
+    font.tables.os2.sTypoDescender = calcDescender
+    font.tables.os2.sTypoLineGap = calcLineGap
+    font.tables.os2.usWinAscent = Math.max(0, calcAscender)
+    font.tables.os2.usWinDescent = Math.max(0, -calcDescender)
 
     const glyphIndexByChar = {}
     for (const char of ALL_CHARS) {
@@ -2469,17 +2520,17 @@ export default function FontMaker() {
     }
     font.kerningPairs = kerningPairs
 
-    return { font, kerningPairs }
+    return { font, kerningPairs, lineMetrics: { ascender: calcAscender, descender: calcDescender, lineGap: calcLineGap } }
   }
 
   const handleExport = (format) => {
     setExportError(null)
     setExporting(true)
     try {
-      const { font, kerningPairs } = buildFont()
+      const { font, kerningPairs, lineMetrics } = buildFont()
       const cffArrayBuffer = font.toArrayBuffer()
       const rawArrayBuffer = format === 'ttf' ? convertCffToTrueType(cffArrayBuffer) : cffArrayBuffer
-      const arrayBuffer = injectKernTable(rawArrayBuffer, kerningPairs)
+      const arrayBuffer = injectKernTable(rawArrayBuffer, kerningPairs, lineMetrics)
       const mime = format === 'otf' ? 'font/otf' : 'font/ttf'
       const blob = new Blob([arrayBuffer], { type: mime })
       const url = window.URL.createObjectURL(blob)
