@@ -910,9 +910,187 @@ function makeKernTableBuffer(kerningPairs) {
   return buf
 }
 
+function makeGposTableBuffer(kerningPairs) {
+  const entries = Object.keys(kerningPairs)
+    .map(key => {
+      const [l, r] = key.split(',').map(Number)
+      return { left: l, right: r, value: kerningPairs[key] }
+    })
+    .filter(e => Number.isFinite(e.left) && Number.isFinite(e.right) && e.value !== 0)
+    .sort((a, b) => (a.left - b.left) || (a.right - b.right))
+
+  if (entries.length === 0) return null
+
+  const byLeft = new Map()
+  for (const e of entries) {
+    if (!byLeft.has(e.left)) byLeft.set(e.left, [])
+    byLeft.get(e.left).push({ right: e.right, value: e.value })
+  }
+  const leftGlyphs = Array.from(byLeft.keys()).sort((a, b) => a - b)
+
+  const VALUE_FORMAT1 = 0x0004
+  const VALUE_FORMAT2 = 0x0000
+
+  const pairSetCount = leftGlyphs.length
+  const subtableHeaderSize = 2 + 2 + 2 + 2 + 2 + pairSetCount * 2
+
+  const pairSetBlobs = leftGlyphs.map(left => {
+    const pairs = byLeft.get(left).sort((a, b) => a.right - b.right)
+    const size = 2 + pairs.length * (2 + 2)
+    const buf = new ArrayBuffer(size)
+    const view = new DataView(buf)
+    let o = 0
+    view.setUint16(o, pairs.length); o += 2
+    for (const p of pairs) {
+      view.setUint16(o, p.right); o += 2
+      view.setInt16(o, p.value); o += 2
+    }
+    return buf
+  })
+
+  const coverageSize = 2 + 2 + leftGlyphs.length * 2
+  const coverageBuf = new ArrayBuffer(coverageSize)
+  {
+    const view = new DataView(coverageBuf)
+    let o = 0
+    view.setUint16(o, 1); o += 2
+    view.setUint16(o, leftGlyphs.length); o += 2
+    for (const g of leftGlyphs) { view.setUint16(o, g); o += 2 }
+  }
+
+  let cursor = subtableHeaderSize
+  const pairSetOffsets = pairSetBlobs.map(blob => {
+    const start = cursor
+    cursor += blob.byteLength
+    return start
+  })
+  const coverageOffset = cursor
+  cursor += coverageBuf.byteLength
+  const subtableSize = cursor
+
+  const subtableBuf = new ArrayBuffer(subtableSize)
+  const subtableView = new DataView(subtableBuf)
+  const subtableBytes = new Uint8Array(subtableBuf)
+  {
+    let o = 0
+    subtableView.setUint16(o, 1); o += 2
+    subtableView.setUint16(o, coverageOffset); o += 2
+    subtableView.setUint16(o, VALUE_FORMAT1); o += 2
+    subtableView.setUint16(o, VALUE_FORMAT2); o += 2
+    subtableView.setUint16(o, pairSetCount); o += 2
+    for (const off of pairSetOffsets) { subtableView.setUint16(o, off); o += 2 }
+
+    pairSetBlobs.forEach((blob, i) => {
+      subtableBytes.set(new Uint8Array(blob), pairSetOffsets[i])
+    })
+    subtableBytes.set(new Uint8Array(coverageBuf), coverageOffset)
+  }
+
+  const lookupHeaderSize = 2 + 2 + 2 + 2
+  const lookupSize = lookupHeaderSize + subtableSize
+  const lookupBuf = new ArrayBuffer(lookupSize)
+  const lookupBytes = new Uint8Array(lookupBuf)
+  {
+    const view = new DataView(lookupBuf)
+    let o = 0
+    view.setUint16(o, 2); o += 2
+    view.setUint16(o, 0); o += 2
+    view.setUint16(o, 1); o += 2
+    view.setUint16(o, lookupHeaderSize); o += 2
+    lookupBytes.set(subtableBytes, lookupHeaderSize)
+  }
+
+  const lookupListHeaderSize = 2 + 2 * 1
+  const lookupListSize = lookupListHeaderSize + lookupSize
+  const lookupListBuf = new ArrayBuffer(lookupListSize)
+  const lookupListBytes = new Uint8Array(lookupListBuf)
+  {
+    const view = new DataView(lookupListBuf)
+    let o = 0
+    view.setUint16(o, 1); o += 2
+    view.setUint16(o, lookupListHeaderSize); o += 2
+    lookupListBytes.set(lookupBytes, lookupListHeaderSize)
+  }
+
+  const featureTableSize = 2 + 2 + 1 * 2
+  const featureListHeaderSize = 2 + (4 + 2) * 1
+  const featureListSize = featureListHeaderSize + featureTableSize
+  const featureListBuf = new ArrayBuffer(featureListSize)
+  {
+    const view = new DataView(featureListBuf)
+    let o = 0
+    view.setUint16(o, 1); o += 2
+    view.setUint8(o, 0x6b); o += 1
+    view.setUint8(o, 0x65); o += 1
+    view.setUint8(o, 0x72); o += 1
+    view.setUint8(o, 0x6e); o += 1
+    const featureOffset = featureListHeaderSize
+    view.setUint16(o, featureOffset); o += 2
+
+    const fview = new DataView(featureListBuf, featureOffset)
+    let fo = 0
+    fview.setUint16(fo, 0); fo += 2
+    fview.setUint16(fo, 1); fo += 2
+    fview.setUint16(fo, 0); fo += 2
+  }
+
+  const langSysSize = 2 + 2 + 2 + 1 * 2
+  const scriptTableSize = 2 + 2 + langSysSize
+  const scriptListHeaderSize = 2 + (4 + 2) * 1
+  const scriptListSize = scriptListHeaderSize + scriptTableSize
+  const scriptListBuf = new ArrayBuffer(scriptListSize)
+  {
+    const view = new DataView(scriptListBuf)
+    let o = 0
+    view.setUint16(o, 1); o += 2
+    view.setUint8(o, 0x44); o += 1
+    view.setUint8(o, 0x46); o += 1
+    view.setUint8(o, 0x4c); o += 1
+    view.setUint8(o, 0x54); o += 1
+    const scriptOffset = scriptListHeaderSize
+    view.setUint16(o, scriptOffset); o += 2
+
+    const sview = new DataView(scriptListBuf, scriptOffset)
+    let so = 0
+    const defaultLangSysOffset = 2 + 2
+    sview.setUint16(so, defaultLangSysOffset); so += 2
+    sview.setUint16(so, 0); so += 2
+
+    const lview = new DataView(scriptListBuf, scriptOffset + defaultLangSysOffset)
+    let lo = 0
+    lview.setUint16(lo, 0); lo += 2
+    lview.setUint16(lo, 0xFFFF); lo += 2
+    lview.setUint16(lo, 1); lo += 2
+    lview.setUint16(lo, 0); lo += 2
+  }
+
+  const headerSize = 2 + 2 + 2 + 2 + 2
+  const scriptListOffset = headerSize
+  const featureListOffset = scriptListOffset + scriptListSize
+  const lookupListOffset = featureListOffset + featureListSize
+  const totalSize = lookupListOffset + lookupListSize
+
+  const out = new ArrayBuffer(totalSize)
+  const outView = new DataView(out)
+  const outBytes = new Uint8Array(out)
+  let o = 0
+  outView.setUint16(o, 1); o += 2
+  outView.setUint16(o, 0); o += 2
+  outView.setUint16(o, scriptListOffset); o += 2
+  outView.setUint16(o, featureListOffset); o += 2
+  outView.setUint16(o, lookupListOffset); o += 2
+
+  outBytes.set(new Uint8Array(scriptListBuf), scriptListOffset)
+  outBytes.set(new Uint8Array(featureListBuf), featureListOffset)
+  outBytes.set(new Uint8Array(lookupListBuf), lookupListOffset)
+
+  return out
+}
+
 function injectKernTable(arrayBuffer, kerningPairs) {
   const kernData = makeKernTableBuffer(kerningPairs)
-  if (!kernData) return arrayBuffer
+  const gposData = makeGposTableBuffer(kerningPairs)
+  if (!kernData && !gposData) return arrayBuffer
 
   const src = new DataView(arrayBuffer)
   const sfntVersion = src.getUint32(0)
@@ -929,12 +1107,23 @@ function injectKernTable(arrayBuffer, kerningPairs) {
     tables.push({ tag, offset, length, data: arrayBuffer.slice(offset, offset + length) })
   }
 
-  tables.push({
-    tag: 'kern',
-    length: kernData.byteLength,
-    data: kernData,
-    checksum: computeTableChecksum(new Uint8Array(kernData)),
-  })
+  if (kernData) {
+    tables.push({
+      tag: 'kern',
+      length: kernData.byteLength,
+      data: kernData,
+      checksum: computeTableChecksum(new Uint8Array(kernData)),
+    })
+  }
+
+  if (gposData) {
+    tables.push({
+      tag: 'GPOS',
+      length: gposData.byteLength,
+      data: gposData,
+      checksum: computeTableChecksum(new Uint8Array(gposData)),
+    })
+  }
 
   for (const t of tables) {
     if (t.checksum === undefined) {
