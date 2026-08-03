@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Font, Glyph, Path, parse as parseFont } from 'opentype.js'
+import { createFont as createFontEditorFont } from 'fonteditor-core'
 import { ArrowLeft, ArrowRight, Undo2, Redo2, X, Space, TriangleAlert, Plus, PenLine, Locate, Minus, Upload, Trash2 } from 'lucide-react'
 import { loadStroke, saveStroke, clearStroke } from '../glyphDB.js'
 import '../fontmaker.css'
@@ -1182,6 +1183,11 @@ function injectKernTable(arrayBuffer, kerningPairs) {
   if (headOffsetInFile >= 0) {
     outView.setUint32(headOffsetInFile + 8, 0)
 
+    const headLength = layout[headRecordIndex].length
+    const headBytes = new Uint8Array(out, headOffsetInFile, headLength)
+    const headRec = 12 + headRecordIndex * 16
+    outView.setUint32(headRec + 4, computeTableChecksum(headBytes))
+
     let fullChecksum = 0
     const fullView = new DataView(out, 0, pad4(totalSize))
     const fullLen = pad4(totalSize) / 4
@@ -1190,14 +1196,21 @@ function injectKernTable(arrayBuffer, kerningPairs) {
     }
     const checksumAdjustment = (0xB1B0AFBA - fullChecksum) >>> 0
     outView.setUint32(headOffsetInFile + 8, checksumAdjustment)
-
-    const headLength = layout[headRecordIndex].length
-    const headBytes = new Uint8Array(out, headOffsetInFile, headLength)
-    const headRec = 12 + headRecordIndex * 16
-    outView.setUint32(headRec + 4, computeTableChecksum(headBytes))
   }
 
   return out
+}
+
+function convertCffToTrueType(arrayBuffer) {
+  const editorFont = createFontEditorFont(arrayBuffer, {
+    type: 'otf',
+    kerning: false,
+    hinting: false,
+  })
+  const ttfBuffer = editorFont.write({ type: 'ttf', kerning: false })
+  return ttfBuffer.buffer
+    ? ttfBuffer.buffer.slice(ttfBuffer.byteOffset, ttfBuffer.byteOffset + ttfBuffer.byteLength)
+    : ttfBuffer
 }
 
 function measureGlyphVerticalExtent(strokes, brushSize) {
@@ -2464,7 +2477,8 @@ export default function FontMaker() {
     setExporting(true)
     try {
       const { font, kerningPairs } = buildFont()
-      const rawArrayBuffer = font.toArrayBuffer()
+      const cffArrayBuffer = font.toArrayBuffer()
+      const rawArrayBuffer = format === 'ttf' ? convertCffToTrueType(cffArrayBuffer) : cffArrayBuffer
       const arrayBuffer = injectKernTable(rawArrayBuffer, kerningPairs)
       const mime = format === 'otf' ? 'font/otf' : 'font/ttf'
       const blob = new Blob([arrayBuffer], { type: mime })

@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "fonteditor-core": "^2.6.3",
     "lucide-react": "^1.28.0",
     "opentype.js": "^2.0.0",
     "react": "^18.3.1",
