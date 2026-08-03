@@ -113,7 +113,6 @@ footer {
 
 h1 {
   font-family: 'Instrument Serif', serif;
-  font-style: italic;
   font-size: clamp(38px, 8vw, 56px);
   font-weight: 400;
   line-height: 1.1;
