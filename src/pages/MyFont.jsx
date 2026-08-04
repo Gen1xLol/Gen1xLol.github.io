@@ -58,10 +58,12 @@ const demoSections = [
   {
     title: 'stress tests',
     body: (
-      <p style={{ fontSize: '30px' }}>
-        <span style={{ fontFamily: 'Gen1x Rough' }}>Stress test for the rough variant</span>
+      <p>
+	    (I recommend right-clicking these and opening them in a new tab.)
+		<br /><br />
+        <span style={{ fontFamily: 'Gen1x Rough', fontSize: '30px' }}>Stress test for the rough variant</span>
         <img src="/assets/rough_stress.png" style={{ width: '100%' }} />
-        <span style={{ fontFamily: 'Gen1x Smooth' }}>Stress test for the smooth variant</span>
+        <span style={{ fontFamily: 'Gen1x Smooth', fontSize: '30px' }}>Stress test for the smooth variant</span>
         <img src="/assets/smooth_stress.png" style={{ width: '100%' }} />
       </p>
     ),
