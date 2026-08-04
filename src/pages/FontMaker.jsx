@@ -479,6 +479,8 @@ function pathFromContours(contours, sideBearing) {
       if (cmd.x1 !== undefined) cmd.x1 = Math.round(cmd.x1 + shiftX)
       if (cmd.x2 !== undefined) cmd.x2 = Math.round(cmd.x2 + shiftX)
     }
+    
+    path.boundingBox = undefined
   }
 
   return { path, advanceWidth: glyphAdvanceWidth }
@@ -1123,6 +1125,13 @@ function injectKernTable(arrayBuffer, kerningPairs, lineMetrics = null) {
         dv.setInt16(72, lineMetrics.lineGap)
         dv.setUint16(74, Math.max(0, lineMetrics.ascender))
         dv.setUint16(76, Math.max(0, -lineMetrics.descender))
+        t.checksum = computeTableChecksum(new Uint8Array(t.data))
+      } else if (t.tag === 'head' && t.data.byteLength >= 54) {
+        const dv = new DataView(t.data)
+        if (lineMetrics.xMin !== undefined) dv.setInt16(36, lineMetrics.xMin)
+        if (lineMetrics.yMin !== undefined) dv.setInt16(38, lineMetrics.yMin)
+        if (lineMetrics.xMax !== undefined) dv.setInt16(40, lineMetrics.xMax)
+        if (lineMetrics.yMax !== undefined) dv.setInt16(42, lineMetrics.yMax)
         t.checksum = computeTableChecksum(new Uint8Array(t.data))
       }
     }
@@ -2440,6 +2449,9 @@ export default function FontMaker() {
     })
     glyphs.push(spaceGlyph)
 
+    let globalXMin = Infinity, globalYMin = Infinity
+    let globalXMax = -Infinity, globalYMax = -Infinity
+
     for (const char of ALL_CHARS) {
         const strokes = strokesRefs.current[char] || []
         if (strokes.length === 0) continue
@@ -2448,6 +2460,14 @@ export default function FontMaker() {
             path,
             advanceWidth
         } = buildGlyphPathCached(strokes, brushSize, 50)
+
+        const box = path.getBoundingBox()
+        if (box.x1 !== box.x2 || box.y1 !== box.y2) {
+          globalXMin = Math.min(globalXMin, box.x1)
+          globalYMin = Math.min(globalYMin, box.y1)
+          globalXMax = Math.max(globalXMax, box.x2)
+          globalYMax = Math.max(globalYMax, box.y2)
+        }
 
         const glyph = new Glyph({
             name: char === ' ' ? 'space' : `uni${char.charCodeAt(0).toString(16).padStart(4, '0')}`,
@@ -2462,20 +2482,13 @@ export default function FontMaker() {
       throw new Error('Draw at least one character before exporting.')
     }
 
-    let minY = Infinity
-    let maxY = -Infinity
-    let found = false
-    for (const char of ALL_CHARS) {
-      const extent = measureGlyphVerticalExtent(strokesRefs.current[char], brushSize)
-      if (!extent) continue
-      found = true
-      minY = Math.min(minY, extent.minY)
-      maxY = Math.max(maxY, extent.maxY)
-    }
+    const found = globalXMin !== Infinity
+    const minY = found ? globalYMin : DESCENDER
+    const maxY = found ? globalYMax : ASCENDER
 
-    const calcAscender = found ? Math.max(ASCENDER, Math.round(maxY)) : ASCENDER
-    const calcDescender = found ? Math.min(DESCENDER, Math.round(minY)) : DESCENDER
-    const calcGlyphHeight = found ? (maxY - minY) : (ASCENDER - DESCENDER)
+    const calcAscender = Math.max(ASCENDER, Math.round(maxY))
+    const calcDescender = Math.min(DESCENDER, Math.round(minY))
+    const calcGlyphHeight = (maxY - minY)
     const calcLineHeight = Math.round(calcGlyphHeight + Math.max(UNITS_PER_EM * 0.15, 150))
     const calcLineGap = Math.max(0, Math.round(calcLineHeight - (calcAscender - calcDescender)))
 
@@ -2520,7 +2533,19 @@ export default function FontMaker() {
     }
     font.kerningPairs = kerningPairs
 
-    return { font, kerningPairs, lineMetrics: { ascender: calcAscender, descender: calcDescender, lineGap: calcLineGap } }
+    return { 
+      font, 
+      kerningPairs, 
+      lineMetrics: { 
+        ascender: calcAscender, 
+        descender: calcDescender, 
+        lineGap: calcLineGap,
+        xMin: found ? Math.round(globalXMin) : 0,
+        yMin: found ? Math.round(globalYMin) : DESCENDER,
+        xMax: found ? Math.round(globalXMax) : Math.round(UNITS_PER_EM * 0.6),
+        yMax: found ? Math.round(globalYMax) : ASCENDER
+      } 
+    }
   }
 
   const handleExport = (format) => {
