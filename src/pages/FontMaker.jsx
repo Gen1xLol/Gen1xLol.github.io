@@ -16,7 +16,7 @@ const BASE_CHAR_GROUPS = [
   { label: 'Uppercase', chars: 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZÁÉÍÓÚÜ'.split('') },
   { label: 'Lowercase', chars: 'abcdefghijklmnñopqrstuvwxyzáéíóúü'.split('') },
   { label: 'Numbers', chars: '0123456789'.split('') },
-  { label: 'Punctuation', chars: '.:,;¡!¿?\'"-—_()[]{}@#$%&*+=/\\<>~^|'.split('') },
+  { label: 'Punctuation', chars: '.:,;¡!¿?\'‘’"“”‹›«»-—_()[]{}@#$%&*+=/\\<>~^|'.split('') },
 ]
 
 const CUSTOM_SYMBOLS_STORAGE_KEY = 'fontmaker-custom-symbols'
