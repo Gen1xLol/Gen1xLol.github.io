@@ -673,7 +673,11 @@ const KERN_SAMPLE_STEPS = 40
 const KERN_TARGET_GAP = UNITS_PER_EM * 0.045
 const KERN_MAX_ADJUST = UNITS_PER_EM * 0.14
 
-function glyphSideProfiles(path, advanceWidth) {
+const KERN_ZONE_WEIGHT = 2.2
+const KERN_STRAIGHT_SLOPE_THRESHOLD = 0.06
+const KERN_ROUND_SPREAD_THRESHOLD = 0.1
+
+function glyphSideProfiles(path, advanceWidth, char) {
   const box = path.getBoundingBox()
   if (box.x1 === box.x2 || box.y1 === box.y2) return null
 
@@ -731,25 +735,115 @@ function glyphSideProfiles(path, advanceWidth) {
     }
   }
 
-  return { left, right, box, advanceWidth }
+  const isLower = typeof char === 'string' && char === char.toLowerCase() && char !== char.toUpperCase()
+  const zoneWeights = new Array(KERN_SAMPLE_STEPS)
+  const zoneLo = isLower ? yBottom + ySpan * 0.08 : yBottom + ySpan * 0.04
+  const zoneHi = isLower ? yBottom + ySpan * 0.62 : yBottom + ySpan * 0.96
+  for (let i = 0; i < KERN_SAMPLE_STEPS; i++) {
+    const t = (i + 0.5) / KERN_SAMPLE_STEPS
+    const y = yBottom + t * ySpan
+    zoneWeights[i] = (y >= zoneLo && y <= zoneHi) ? KERN_ZONE_WEIGHT : 1
+  }
+
+  return classifyGlyphSides({ left, right, box, advanceWidth, zoneWeights })
+}
+
+function classifySide(edgeValues) {
+  const known = []
+  for (let i = 0; i < edgeValues.length; i++) {
+    const v = edgeValues[i]
+    if (v !== Infinity && v !== -Infinity) known.push(v)
+  }
+  if (known.length < 2) return { shape: 'flat', spread: 0, slope: 0 }
+
+  const first = known[0]
+  const last = known[known.length - 1]
+  const span = Math.max(1, known.length - 1)
+  const slope = Math.abs(last - first) / (UNITS_PER_EM * span / KERN_SAMPLE_STEPS)
+
+  let minV = Infinity
+  let maxV = -Infinity
+  for (const v of known) {
+    if (v < minV) minV = v
+    if (v > maxV) maxV = v
+  }
+  const spread = (maxV - minV) / UNITS_PER_EM
+
+  let shape
+  if (spread > KERN_ROUND_SPREAD_THRESHOLD) {
+    const mid = known[Math.floor(known.length / 2)]
+    const bulgesOut = mid > (first + last) / 2
+    shape = bulgesOut ? 'round' : 'concave'
+  } else if (slope > KERN_STRAIGHT_SLOPE_THRESHOLD) {
+    shape = 'diagonal'
+  } else {
+    shape = 'flat'
+  }
+  return { shape, spread, slope }
+}
+
+function classifyGlyphSides(profile) {
+  profile.leftShape = classifySide(profile.left)
+  profile.rightShape = classifySide(profile.right)
+  return profile
+}
+
+const SHAPE_GAP_FACTOR = {
+  'flat|flat': 1.08,
+  'flat|round': 0.98,
+  'round|flat': 0.98,
+  'round|round': 0.88,
+  'flat|diagonal': 0.94,
+  'diagonal|flat': 0.94,
+  'diagonal|diagonal': 0.82,
+  'round|diagonal': 0.85,
+  'diagonal|round': 0.85,
+  'concave|flat': 1.0,
+  'flat|concave': 1.0,
+  'concave|round': 0.92,
+  'round|concave': 0.92,
+  'concave|concave': 0.8,
+  'concave|diagonal': 0.82,
+  'diagonal|concave': 0.82,
+}
+
+function shapeTargetGap(leftShape, rightShape) {
+  const key = `${leftShape}|${rightShape}`
+  const factor = SHAPE_GAP_FACTOR[key] ?? 1
+  return KERN_TARGET_GAP * factor
 }
 
 function computeAutoKerningValue(leftProfile, rightProfile) {
   if (!leftProfile || !rightProfile) return 0
 
+  const gaps = []
+  const weights = []
   let minGap = Infinity
-  let sawOverlap = false
+
   for (let i = 0; i < KERN_SAMPLE_STEPS; i++) {
     const leftEdge = leftProfile.right[i]
     const rightEdge = rightProfile.left[i]
     if (leftEdge === -Infinity || rightEdge === Infinity) continue
     const gap = (leftProfile.advanceWidth - leftEdge) + rightEdge
+    gaps.push(gap)
+    weights.push(leftProfile.zoneWeights[i] * rightProfile.zoneWeights[i])
     if (gap < minGap) minGap = gap
-    sawOverlap = true
   }
-  if (!sawOverlap) return 0
+  if (gaps.length === 0) return 0
 
-  const adjust = KERN_TARGET_GAP - minGap
+  const nearMinBand = minGap + UNITS_PER_EM * 0.02
+  let bandSum = 0
+  let bandWeight = 0
+  for (let i = 0; i < gaps.length; i++) {
+    if (gaps[i] <= nearMinBand) {
+      bandSum += gaps[i] * weights[i]
+      bandWeight += weights[i]
+    }
+  }
+  const effectiveGap = bandWeight > 0 ? bandSum / bandWeight : minGap
+
+  const target = shapeTargetGap(leftProfile.rightShape.shape, rightProfile.leftShape.shape)
+  const adjust = target - effectiveGap
   return Math.max(-KERN_MAX_ADJUST, Math.min(KERN_MAX_ADJUST, Math.round(adjust)))
 }
 
@@ -759,7 +853,7 @@ function computeAutoKerningTable(strokesRefs, brushSize) {
     const strokes = strokesRefs.current[char]
     if (!strokes || strokes.length === 0) continue
     const { path, advanceWidth } = buildGlyphPathCached(strokes, brushSize, 50)
-    profiles[char] = glyphSideProfiles(path, advanceWidth)
+    profiles[char] = glyphSideProfiles(path, advanceWidth, char)
   }
 
   const table = {}
@@ -800,7 +894,7 @@ function computeAutoSpaceWidth(strokesRefs, brushSize) {
     if (!strokes || strokes.length === 0) continue
 
     const { path, advanceWidth } = buildGlyphPathCached(strokes, brushSize, 50)
-    const profile = glyphSideProfiles(path, advanceWidth)
+    const profile = glyphSideProfiles(path, advanceWidth, char)
     if (!profile) continue
 
     let rightMost = -Infinity
