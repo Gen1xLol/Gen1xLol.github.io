@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Font, Glyph, Path, parse as parseFont } from 'opentype.js'
-import { createFont as createFontEditorFont } from 'fonteditor-core'
+import { createFont as createFontEditorFont, woff2 } from 'fonteditor-core'
 import { ArrowLeft, ArrowRight, Undo2, Redo2, X, Space, TriangleAlert, Plus, PenLine, Locate, Minus, Upload, Trash2 } from 'lucide-react'
 import { loadStroke, saveStroke, clearStroke } from '../glyphDB.js'
 import '../fontmaker.css'
@@ -1336,6 +1336,21 @@ function convertCffToTrueType(arrayBuffer) {
     : ttfBuffer
 }
 
+const WOFF2_WASM_URL = 'https://unpkg.com/fonteditor-core@2.6.3/woff2/woff2.wasm'
+let woff2InitPromise = null
+
+function ensureWoff2Ready() {
+  if (woff2.isInited()) return Promise.resolve()
+  if (!woff2InitPromise) woff2InitPromise = woff2.init(WOFF2_WASM_URL)
+  return woff2InitPromise
+}
+
+async function convertTrueTypeToWoff2(ttfArrayBuffer) {
+  await ensureWoff2Ready()
+  const encoded = woff2.encode(ttfArrayBuffer)
+  return encoded.buffer.slice(encoded.byteOffset, encoded.byteOffset + encoded.byteLength)
+}
+
 function measureGlyphVerticalExtent(strokes, brushSize) {
   if (!strokes || strokes.length === 0) return null
   const { path } = buildGlyphPathCached(strokes, brushSize, 50)
@@ -2642,16 +2657,17 @@ export default function FontMaker() {
     }
   }
 
-  const handleExport = (format) => {
+  const handleExport = async (format) => {
     setExportError(null)
     setExporting(true)
     try {
       const { font, kerningPairs, lineMetrics } = buildFont()
       const cffArrayBuffer = font.toArrayBuffer()
-      const rawArrayBuffer = format === 'ttf' ? convertCffToTrueType(cffArrayBuffer) : cffArrayBuffer
-      const arrayBuffer = injectKernTable(rawArrayBuffer, kerningPairs, lineMetrics)
-      const mime = format === 'otf' ? 'font/otf' : 'font/ttf'
-      const blob = new Blob([arrayBuffer], { type: mime })
+      const rawArrayBuffer = format === 'otf' ? cffArrayBuffer : convertCffToTrueType(cffArrayBuffer)
+      const sfntArrayBuffer = injectKernTable(rawArrayBuffer, kerningPairs, lineMetrics)
+      const arrayBuffer = format === 'woff2' ? await convertTrueTypeToWoff2(sfntArrayBuffer) : sfntArrayBuffer
+      const mimeByFormat = { otf: 'font/otf', ttf: 'font/ttf', woff2: 'font/woff2' }
+      const blob = new Blob([arrayBuffer], { type: mimeByFormat[format] })
       const url = window.URL.createObjectURL(blob)
       const safeName = (fontName || 'my-font').trim().replace(/\s+/g, '-').toLowerCase()
       const a = document.createElement('a')
@@ -2895,6 +2911,13 @@ export default function FontMaker() {
               disabled={exporting || progress === 0}
             >
               Export as .otf
+            </button>
+            <button
+              className="fm-export-btn"
+              onClick={() => handleExport('woff2')}
+              disabled={exporting || progress === 0}
+            >
+              Export as .woff2
             </button>
           </div>
           <button className="fm-clear-all-btn" onClick={handleClearAll}>
