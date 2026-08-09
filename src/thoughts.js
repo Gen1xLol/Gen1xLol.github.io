@@ -16,7 +16,7 @@ let THOUGHTS = [
   "67",
   "this status message is a status message",
   "Mike is definitely a cat!",
-  "best viewed in PC/laptops",
+  "best viewed in desktop",
   "Erk-erk! Ink emergency!",
   "aaaaaahhhhhhhhhhhhhhhhhhhhhhhh",
   "i'm The Grungler",
@@ -33,7 +33,23 @@ let THOUGHTS = [
   "i love my bf",
   "it's a game called Hello Neighbor",
   "Equip  ❤️  Equip",
-  "YOU (yes, you!) are VALID"
+  "YOU (yes, you!) are VALID",
+  "Donald Trump x Charlie Kirk doomed yaoi",
+  "i'm not gay, but my boyfriend is!",
+  "the cloud this text is floating on was very hard to code",
+  "mweheheheheheh",
+  "Better Call Saul!",
+  "Better Fuel Huell!",
+  "Breaking Bad",
+  "Fixing Good",
+  "[Hochi Mama]!!!",
+  "[shake]WATCH ME FLY, MAMA!!!",
+  "CSS is a pain in the Ass.",
+  "[shake]i'm a shakey shakey boy",
+  "what if there was a game called Hello Neighbor",
+  "vedal: wowie zowie",
+  "ddededodediamante",
+  "Ah... Argentina. Home to La Avenida Más Ancha del Mundo, El Río Más Ancho del Mundo, and Las Minas Más Lindas del Mundo... and dulce de leche." 
 ]
 
 function shuffle(array) {
