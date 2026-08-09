@@ -45,6 +45,8 @@ function BackForwardRedirectHandler() {
           lastHashRef.current = '/'
           return
         }
+
+        setStoredManAccess(false)
       }
 
       if (isRedirectingRef.current) {
@@ -72,6 +74,9 @@ function BackForwardRedirectHandler() {
 
             if (pair.backAndForthCount >= TIMES && Math.random() < MAN_UNLOCK_CHANCE) {
               setStoredManAccess(true)
+              console.log("yes!")
+              window.location.hash = '#/man'
+              return
             } else {
               console.log("nope!")
             }
