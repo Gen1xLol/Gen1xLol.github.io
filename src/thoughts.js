@@ -49,6 +49,7 @@ let THOUGHTS = [
   "what if there was a game called Hello Neighbor",
   "vedal: wowie zowie",
   "ddededodediamante",
+  "Z, 4, Q... another Q... a third Q... and the Batman symbol."
   "Ah... Argentina. Home to La Avenida Más Ancha del Mundo, El Río Más Ancho del Mundo, and Las Minas Más Lindas del Mundo... and dulce de leche." 
 ]
 
