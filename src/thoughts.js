@@ -82,7 +82,8 @@ function shuffle(array) {
   return shuffled;
 }
 
+window.THOUGHTS = THOUGHTS;
 THOUGHTS = shuffle(THOUGHTS);
 
-window.THOUGHTS = THOUGHTS;
+window.THOUGHTS_RND = THOUGHTS;
 export default THOUGHTS
