@@ -6,7 +6,7 @@ import argentinaFlag from '../argentina.png'
 import THOUGHTS from '../thoughts.js'
 import '../home.css'
 
-let margin = -40
+const margin = -40
 
 function calcAge() {
   const birth = new Date(Date.UTC(2010, 2, 16, 15, 27, 0))
