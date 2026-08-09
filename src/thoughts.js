@@ -68,7 +68,12 @@ let THOUGHTS = [
   "Cellua is cool",
   "<@694587798598058004> I'm going",
   "a british cigarette is called the same thing as a certain type of candy in the US",
-  "Friends with Not The Grungler"
+  "Friends with Not The Grungler",
+  "SHE'S THE NYA-NYA GIRL WITH THE MYA-MYA BRIGADE!!",
+  "SHE'S SAVING THE DAY!!",
+  "SHE'S THE NYA-NYA GIRL WHO IS READY TO PLAY!!",
+  "CUTIE'S HERE, KITTY'S HERE, TOOOOOO SAAAVE YOU!!",
+  "Obby for pink coins, then it's catgirl time.",
 ]
 
 function shuffle(array) {

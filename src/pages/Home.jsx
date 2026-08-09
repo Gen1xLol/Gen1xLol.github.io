@@ -119,10 +119,12 @@ function ThoughtBubble({ text, gap = margin }) {
 
       const midY = height / 2
       const bigR = 7
-      const bigAttachX = -12
+      const bubbleSize = Math.min(width, height)
+      const tailBackOffset = Math.max(0, Math.min(24, (bubbleSize - 140) * 0.1))
+      const bigAttachX = -12 - tailBackOffset
       const midDotR = 4.5
       const smallDotR = 3
-      const dotGap = 12
+      const dotGap = 12 + tailBackOffset * 0.35
 
       const tailDotsData = [
         { x: bigAttachX, r: bigR },
@@ -214,20 +216,36 @@ function ThoughtBubble({ text, gap = margin }) {
         )}
 
         <span className="thought-text">
-          {isShake
-            ? cleanText.split('').map((char, i) => (
-                <span
-                  key={i}
-                  className="shake-char"
-                  style={{
-                    animationDelay: `${-((i * 0.11) % 0.3)}s`,
-                    animationDuration: `${0.26 + ((i % 4) * 0.04)}s`
-                  }}
-                >
-                  {char === ' ' ? '\u00A0' : char}
+          {cleanText.split(/(\s+)/).map((token, i) => {
+            if (!token.trim()) {
+              return (
+                <span key={i} className="thought-space">
+                  {token === ' ' ? '\u00A0' : token}
                 </span>
-              ))
-            : text}
+              )
+            }
+
+            return (
+              <span key={i} className="thought-word">
+                {token.split('').map((char, j) => (
+                  <span
+                    key={`${i}-${j}`}
+                    className={isShake ? 'shake-char' : 'float-char'}
+                    style={{
+                      animationDelay: isShake
+                        ? `${-((j * 0.11) % 0.3)}s`
+                        : `${(j * 0.1) % 1.8}s`,
+                      animationDuration: isShake
+                        ? `${0.26 + ((j % 4) * 0.04)}s`
+                        : '2.5s'
+                    }}
+                  >
+                    {char === ' ' ? '\u00A0' : char}
+                  </span>
+                ))}
+              </span>
+            )
+          })}
         </span>
       </div>
     </div>
