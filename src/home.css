@@ -67,19 +67,19 @@ nav a:hover {
 
 @keyframes float {
   0%, 100% {
-    transform: translateY(0);
+    transform: translateY(3px);
   }
   50% {
-    transform: translateY(-6px);
+    transform: translateY(-3px);
   }
 }
 
 @keyframes floatLess {
   0%, 100% {
-    transform: translateY(0);
+    transform: translateY(1.5px);
   }
   50% {
-    transform: translateY(-3px);
+    transform: translateY(-1.5px);
   }
 }
 
@@ -121,7 +121,6 @@ nav a:hover {
 .thought-bubble-procedural {
   position: relative;
   border-radius: 20px;
-  padding: 4px 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -129,109 +128,21 @@ nav a:hover {
   animation-delay: 0.75s;
   box-sizing: border-box;
 }
-.cloud-gradient-svg {
+.cloud-gradient-canvas {
   position: absolute;
   left: var(--svg-margin, -20px);
   top: var(--svg-margin, -20px);
   z-index: 0;
-  overflow: visible;
   pointer-events: none;
   filter: drop-shadow(0 1px 0 rgba(255,255,255,0.08));
 }
 
-.cloud-mask-lobe {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: lobeWobble var(--anim-duration, 3s) ease-in-out infinite alternate;
-}
-
-.cloud-mask-dot {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: tailDotPulse var(--anim-duration, 3s) ease-in-out infinite alternate;
-}
-
-.cloud-mask-dot-big {
-  transform-box: view-box;
-  animation-name: tailDotPulseBig;
-}
-
-.thought-text {
-  position: relative;
-  z-index: 2;
-  font-family: 'Gen1x Rough', cursive, sans-serif;
-  font-size: 26px;
-  color: var(--purple-lt);
-  line-height: 1.15;
-  letter-spacing: 0.01em;
-  white-space: normal;
-  word-break: normal;
-  overflow-wrap: break-word;
-  user-select: none;
-  display: inline-block;
-  text-align: center;
-  margin: 0;
-  padding: 0;
-}
-
-.thought-word {
-  display: inline-block;
-  white-space: nowrap;
-}
-
-.thought-space {
-  white-space: pre;
-}
-
-.shake-char {
-  display: inline-block;
-  will-change: transform;
-  animation: textShake 0.3s ease-in-out infinite;
-}
-
-@keyframes textShake {
-  0% { transform: translate(0, 0) rotate(0deg); }
-  16% { transform: translate(-1.5px, 1px) rotate(-1deg); }
-  33% { transform: translate(1.5px, -1.2px) rotate(1.2deg); }
-  50% { transform: translate(-1.2px, -1px) rotate(-0.8deg); }
-  66% { transform: translate(1px, 1.5px) rotate(1deg); }
-  83% { transform: translate(-1px, -1.2px) rotate(-1.2deg); }
-  100% { transform: translate(0, 0) rotate(0deg); }
-}
-
 @keyframes cloudFloat {
   0%, 100% {
-    transform: translateY(0);
+    transform: translateY(3px);
   }
   50% {
-    transform: translateY(-6px);
-  }
-}
-
-@keyframes lobeWobble {
-  0%, 100% {
-    transform: scale(1) translateY(0);
-  }
-  50% {
-    transform: scale(1.18) translateY(-1px);
-  }
-}
-
-@keyframes tailDotPulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.25);
-  }
-}
-
-@keyframes tailDotPulseBig {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.35);
+    transform: translateY(-3px);
   }
 }
 
@@ -407,16 +318,8 @@ nav a:hover {
     align-self: flex-start;
   }
 
-  .thought-bubble-wrapper .cloud-mask-dot {
-    display: none;
-  }
-
   .thought-bubble-procedural {
     max-width: min(280px, 90vw);
     padding: 6px 14px;
-  }
-
-  .thought-text {
-    white-space: normal;
   }
 }
