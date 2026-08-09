@@ -20,7 +20,7 @@ function ThoughtBubble({ text }) {
   const [circles, setCircles] = useState([])
   const [tailDots, setTailDots] = useState([])
   const [size, setSize] = useState({ width: 0, height: 0 })
-  const [svgMargin, setSvgMargin] = useState(20)
+  const [svgMargin, setSvgMargin] = useState(54)
 
   const isShake = typeof text === 'string' && text.startsWith('[shake]')
   const cleanText = isShake ? text.replace(/^\[shake\]\s*/, '') : text
@@ -42,12 +42,17 @@ function ThoughtBubble({ text }) {
 
       const cap = Math.min(width, height) / 2.6
       const straightW = Math.max(0, width - cap * 2)
+      const straightH = Math.max(0, height - cap * 2)
+      const arcLen = (Math.PI / 2) * cap
 
-      const topLen = straightW
-      const rightArcLen = Math.PI * cap
-      const bottomLen = straightW
-      const leftArcLen = Math.PI * cap
-      const perimeter = topLen + rightArcLen + bottomLen + leftArcLen
+      const seg1 = straightW
+      const seg2 = seg1 + arcLen
+      const seg3 = seg2 + straightH
+      const seg4 = seg3 + arcLen
+      const seg5 = seg4 + straightW
+      const seg6 = seg5 + arcLen
+      const seg7 = seg6 + straightH
+      const perimeter = seg7 + arcLen
 
       const rBase = Math.max(7, cap * 0.42)
       const count = Math.max(14, Math.ceil(perimeter / (rBase * 0.62)))
@@ -56,23 +61,46 @@ function ThoughtBubble({ text }) {
         const d = (i / count) * perimeter
         let x, y, nx, ny
 
-        if (d < topLen) {
+        if (d < seg1) {
           x = cap + d
           y = 0
           nx = 0; ny = -1
-        } else if (d < topLen + rightArcLen) {
-          const a = (d - topLen) / cap - Math.PI / 2
+        } else if (d < seg2) {
+          const t = d - seg1
+          const a = -Math.PI / 2 + (t / arcLen) * (Math.PI / 2)
           x = width - cap + cap * Math.cos(a)
           y = cap + cap * Math.sin(a)
           nx = Math.cos(a); ny = Math.sin(a)
-        } else if (d < topLen + rightArcLen + bottomLen) {
-          const t = d - topLen - rightArcLen
+        } else if (d < seg3) {
+          const t = d - seg2
+          x = width
+          y = cap + t
+          nx = 1; ny = 0
+        } else if (d < seg4) {
+          const t = d - seg3
+          const a = 0 + (t / arcLen) * (Math.PI / 2)
+          x = width - cap + cap * Math.cos(a)
+          y = height - cap + cap * Math.sin(a)
+          nx = Math.cos(a); ny = Math.sin(a)
+        } else if (d < seg5) {
+          const t = d - seg4
           x = width - cap - t
           y = height
           nx = 0; ny = 1
+        } else if (d < seg6) {
+          const t = d - seg5
+          const a = Math.PI / 2 + (t / arcLen) * (Math.PI / 2)
+          x = cap + cap * Math.cos(a)
+          y = height - cap + cap * Math.sin(a)
+          nx = Math.cos(a); ny = Math.sin(a)
+        } else if (d < seg7) {
+          const t = d - seg6
+          x = 0
+          y = height - cap - t
+          nx = -1; ny = 0
         } else {
-          const t = d - topLen - rightArcLen - bottomLen
-          const a = t / cap + Math.PI / 2
+          const t = d - seg7
+          const a = Math.PI + (t / arcLen) * (Math.PI / 2)
           x = cap + cap * Math.cos(a)
           y = cap + cap * Math.sin(a)
           nx = Math.cos(a); ny = Math.sin(a)
@@ -88,14 +116,13 @@ function ThoughtBubble({ text }) {
       setCircles(newCircles)
 
       const midY = height / 2
-      const bigR = Math.max(6, cap * 0.38)
-      const bigOverlap = bigR * 0.25
-      const bigAttachX = -(bigR - bigOverlap) - bigR - cap * 0.25
-      const midDotR = Math.max(3.5, cap * 0.22)
-      const smallDotR = Math.max(2.6, cap * 0.16)
-      const dotGap = Math.max(10, cap * 0.7)
-      const tailReach = Math.abs(bigAttachX) + bigR + dotGap * 2.1 + smallDotR
-      setSvgMargin(Math.ceil(Math.max(20, tailReach + 6)))
+      const bigR = 7
+      const bigAttachX = -12
+      const midDotR = 4.5
+      const smallDotR = 3
+      const dotGap = 12
+
+      setSvgMargin(54)
       setTailDots([
         { x: bigAttachX, y: midY, r: bigR, coreR: bigR * 0.85, delay: 0.1, duration: 3.2 + Math.random() * 0.6, big: true },
         { x: bigAttachX - bigR - dotGap, y: midY, r: midDotR, coreR: midDotR * 0.85, delay: 0.3, duration: 2.6 + Math.random() * 0.8 },
@@ -111,7 +138,7 @@ function ThoughtBubble({ text }) {
   }, [text])
 
   return (
-    <div className="thought-bubble-wrapper fade-in" style={{ animationDelay: '0.6s' }}>
+    <div className="thought-bubble-wrapper fade-in" style={{ animationDelay: '0.6s', marginLeft: `${svgMargin}px` }}>
       <div className="thought-bubble-procedural" ref={containerRef}>
         {size.width > 0 && (
           <svg
