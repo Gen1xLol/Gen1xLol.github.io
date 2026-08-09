@@ -6,6 +6,8 @@ import argentinaFlag from '../argentina.png'
 import THOUGHTS from '../thoughts.js'
 import '../home.css'
 
+let margin = -40
+
 function calcAge() {
   const birth = new Date(Date.UTC(2010, 2, 16, 15, 27, 0))
   const now = new Date()
@@ -15,12 +17,12 @@ function calcAge() {
   return y
 }
 
-function ThoughtBubble({ text }) {
+function ThoughtBubble({ text, gap = margin }) {
   const containerRef = useRef(null)
   const [circles, setCircles] = useState([])
   const [tailDots, setTailDots] = useState([])
   const [size, setSize] = useState({ width: 0, height: 0 })
-  const [svgMargin, setSvgMargin] = useState(54)
+  const [svgMargin, setSvgMargin] = useState(0)
 
   const isShake = typeof text === 'string' && text.startsWith('[shake]')
   const cleanText = isShake ? text.replace(/^\[shake\]\s*/, '') : text
@@ -122,7 +124,15 @@ function ThoughtBubble({ text }) {
       const smallDotR = 3
       const dotGap = 12
 
-      setSvgMargin(54)
+      const tailDotsData = [
+        { x: bigAttachX, r: bigR },
+        { x: bigAttachX - bigR - dotGap, r: midDotR },
+        { x: bigAttachX - bigR - dotGap * 2.1, r: smallDotR },
+      ]
+      const minX = Math.min(...tailDotsData.map(d => d.x - d.r))
+      const requiredMargin = Math.max(20, Math.ceil(-minX) + 2)
+      
+      setSvgMargin(requiredMargin)
       setTailDots([
         { x: bigAttachX, y: midY, r: bigR, coreR: bigR * 0.85, delay: 0.1, duration: 3.2 + Math.random() * 0.6, big: true },
         { x: bigAttachX - bigR - dotGap, y: midY, r: midDotR, coreR: midDotR * 0.85, delay: 0.3, duration: 2.6 + Math.random() * 0.8 },
@@ -138,7 +148,7 @@ function ThoughtBubble({ text }) {
   }, [text])
 
   return (
-    <div className="thought-bubble-wrapper fade-in" style={{ animationDelay: '0.6s', marginLeft: `${svgMargin}px` }}>
+    <div className="thought-bubble-wrapper fade-in" style={{ animationDelay: '0.6s', marginLeft: `${svgMargin + gap}px` }}>
       <div className="thought-bubble-procedural" ref={containerRef}>
         {size.width > 0 && (
           <svg
