@@ -107,7 +107,7 @@ nav a:hover {
 .thought-bubble-procedural {
   position: relative;
   border-radius: 20px;
-  padding: 8px 16px;
+  padding: 4px 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -117,8 +117,8 @@ nav a:hover {
 }
 .cloud-gradient-svg {
   position: absolute;
-  left: -20px;
-  top: -20px;
+  left: var(--svg-margin, -20px);
+  top: var(--svg-margin, -20px);
   z-index: 0;
   overflow: visible;
   pointer-events: none;

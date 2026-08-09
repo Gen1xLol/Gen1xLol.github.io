@@ -20,6 +20,7 @@ function ThoughtBubble({ text }) {
   const [circles, setCircles] = useState([])
   const [tailDots, setTailDots] = useState([])
   const [size, setSize] = useState({ width: 0, height: 0 })
+  const [svgMargin, setSvgMargin] = useState(20)
 
   const isShake = typeof text === 'string' && text.startsWith('[shake]')
   const cleanText = isShake ? text.replace(/^\[shake\]\s*/, '') : text
@@ -39,8 +40,8 @@ function ThoughtBubble({ text }) {
 
       const newCircles = []
 
-      const cap = Math.min(width, height) / 2
-      const straightW = Math.max(0, width - height)
+      const cap = Math.min(width, height) / 2.6
+      const straightW = Math.max(0, width - cap * 2)
 
       const topLen = straightW
       const rightArcLen = Math.PI * cap
@@ -48,7 +49,8 @@ function ThoughtBubble({ text }) {
       const leftArcLen = Math.PI * cap
       const perimeter = topLen + rightArcLen + bottomLen + leftArcLen
 
-      const count = Math.max(14, Math.ceil(perimeter / 9))
+      const rBase = Math.max(7, cap * 0.42)
+      const count = Math.max(14, Math.ceil(perimeter / (rBase * 0.62)))
 
       for (let i = 0; i < count; i++) {
         const d = (i / count) * perimeter
@@ -76,24 +78,28 @@ function ThoughtBubble({ text }) {
           nx = Math.cos(a); ny = Math.sin(a)
         }
 
-        const rBase = Math.max(9, cap * 0.46)
         const r = rBase + Math.random() * rBase * 0.5
-        const inset = rBase * 0.2
+        const inset = rBase * 0.35
         const delay = Math.random() * 3
         const duration = 2.6 + Math.random() * 0.8
-        newCircles.push({ x: x - nx * inset, y: y - ny * inset, r: r * 1.3, coreR: r * 1.15, delay, duration })
+        newCircles.push({ x: x - nx * inset, y: y - ny * inset, r: r * 1.45, coreR: r * 1.3, delay, duration })
       }
 
       setCircles(newCircles)
 
       const midY = height / 2
-      const bigR = Math.max(8, cap * 0.5)
-      const bigOverlap = bigR * 0.55
-      const bigAttachX = Math.min(-(bigR - bigOverlap) - bigR, cap * 0.35 - bigR)
+      const bigR = Math.max(6, cap * 0.38)
+      const bigOverlap = bigR * 0.25
+      const bigAttachX = -(bigR - bigOverlap) - bigR - cap * 0.25
+      const midDotR = Math.max(3.5, cap * 0.22)
+      const smallDotR = Math.max(2.6, cap * 0.16)
+      const dotGap = Math.max(10, cap * 0.7)
+      const tailReach = Math.abs(bigAttachX) + bigR + dotGap * 2.1 + smallDotR
+      setSvgMargin(Math.ceil(Math.max(20, tailReach + 6)))
       setTailDots([
         { x: bigAttachX, y: midY, r: bigR, coreR: bigR * 0.85, delay: 0.1, duration: 3.2 + Math.random() * 0.6, big: true },
-        { x: -34, y: midY, r: 6.5, coreR: 5.5, delay: 0.3, duration: 2.6 + Math.random() * 0.8 },
-        { x: -50, y: midY, r: 5, coreR: 4.2, delay: 0.5, duration: 2.6 + Math.random() * 0.8 },
+        { x: bigAttachX - bigR - dotGap, y: midY, r: midDotR, coreR: midDotR * 0.85, delay: 0.3, duration: 2.6 + Math.random() * 0.8 },
+        { x: bigAttachX - bigR - dotGap * 2.1, y: midY, r: smallDotR, coreR: smallDotR * 0.85, delay: 0.5, duration: 2.6 + Math.random() * 0.8 },
       ])
     }
 
@@ -110,9 +116,10 @@ function ThoughtBubble({ text }) {
         {size.width > 0 && (
           <svg
             className="cloud-gradient-svg"
-            width={size.width + 40}
-            height={size.height + 40}
-            viewBox={`${-20} ${-20} ${size.width + 40} ${size.height + 40}`}
+            width={size.width + svgMargin * 2}
+            height={size.height + svgMargin * 2}
+            viewBox={`${-svgMargin} ${-svgMargin} ${size.width + svgMargin * 2} ${size.height + svgMargin * 2}`}
+            style={{ '--svg-margin': `-${svgMargin}px` }}
           >
             <defs>
               <linearGradient id="cloudFill" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -120,12 +127,12 @@ function ThoughtBubble({ text }) {
                 <stop offset="45%" stopColor="#2f1c5e" />
                 <stop offset="100%" stopColor="#170f33" />
               </linearGradient>
-              <mask id="cloudMask" maskUnits="userSpaceOnUse" x={-70} y={-70} width={size.width + 140} height={size.height + 140}>
+              <mask id="cloudMask" maskUnits="userSpaceOnUse" x={-svgMargin * 2} y={-svgMargin * 2} width={size.width + svgMargin * 4} height={size.height + svgMargin * 4}>
                 <rect
-                  x={Math.max(4, Math.min(size.width, size.height) * 0.14)}
-                  y={Math.max(4, Math.min(size.width, size.height) * 0.14)}
-                  width={Math.max(0, size.width - Math.max(4, Math.min(size.width, size.height) * 0.14) * 2)}
-                  height={Math.max(0, size.height - Math.max(4, Math.min(size.width, size.height) * 0.14) * 2)}
+                  x={Math.max(3, Math.min(size.width, size.height) * 0.1)}
+                  y={Math.max(3, Math.min(size.width, size.height) * 0.1)}
+                  width={Math.max(0, size.width - Math.max(3, Math.min(size.width, size.height) * 0.1) * 2)}
+                  height={Math.max(0, size.height - Math.max(3, Math.min(size.width, size.height) * 0.1) * 2)}
                   rx="9999" ry="9999"
                   fill="white"
                 />
@@ -160,9 +167,9 @@ function ThoughtBubble({ text }) {
               </mask>
             </defs>
             <rect
-              x={-70} y={-70}
-              width={size.width + 140}
-              height={size.height + 140}
+              x={-svgMargin * 2} y={-svgMargin * 2}
+              width={size.width + svgMargin * 4}
+              height={size.height + svgMargin * 4}
               fill="url(#cloudFill)"
               mask="url(#cloudMask)"
             />
