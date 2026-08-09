@@ -74,6 +74,13 @@ let THOUGHTS = [
   "SHE'S THE NYA-NYA GIRL WHO IS READY TO PLAY!!",
   "CUTIE'S HERE, KITTY'S HERE, TOOOOOO SAAAVE YOU!!",
   "Obby for pink coins, then it's catgirl time.",
+  "Everyone will remember my name when I go... Moshi wa-moshi...",
+  "We are talking about our first gold record.          (found)",
+  "Two numbers in are nine. The largest number is nine.",
+  "Additional numbers for dips, six and seven.",
+  "There are two 45s, one for cheese and one large for soda.",
+  "Yes Yes Yes Yes Yes Yes Yes Yes Let's go.",
+  "me when getting robbed: 'HAAIIII OF COURSE!!! :D'"
 ]
 
 function shuffle(array) {
