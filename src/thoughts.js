@@ -68,6 +68,7 @@ let THOUGHTS = [
   "Cellua is cool",
   "<@694587798598058004> I'm going",
   "a british cigarette is called the same thing as a certain type of candy in the US",
+  "Friends with Not The Grungler"
 ]
 
 function shuffle(array) {
