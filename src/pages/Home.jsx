@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import ExternalIcon from '../components/ExternalIcon.jsx'
 import MouseTooltip from '../components/MouseTooltip.jsx'
@@ -80,19 +80,20 @@ function ThoughtBubble({ text }) {
         const r = rBase + Math.random() * rBase * 0.5
         const inset = rBase * 0.2
         const delay = Math.random() * 3
-        newCircles.push({ x: x - nx * inset, y: y - ny * inset, r: r * 1.3, coreR: r * 1.15, delay })
+        const duration = 2.6 + Math.random() * 0.8
+        newCircles.push({ x: x - nx * inset, y: y - ny * inset, r: r * 1.3, coreR: r * 1.15, delay, duration })
       }
 
       setCircles(newCircles)
 
       const midY = height / 2
       const bigR = Math.max(8, cap * 0.5)
-      const baseInset = Math.max(4, Math.min(width, height) * 0.14)
-      const bigOverlap = bigR * 0.55 + baseInset
+      const bigOverlap = bigR * 0.55
+      const bigAttachX = Math.min(-(bigR - bigOverlap) - bigR, cap * 0.35 - bigR)
       setTailDots([
-        { x: -(bigR - bigOverlap) - bigR, y: midY, r: bigR, coreR: bigR * 0.85, delay: 0.1, big: true },
-        { x: -34 + baseInset * 0.6, y: midY, r: 6.5, coreR: 5.5, delay: 0.3 },
-        { x: -50 + baseInset * 0.6, y: midY, r: 5, coreR: 4.2, delay: 0.5 },
+        { x: bigAttachX, y: midY, r: bigR, coreR: bigR * 0.85, delay: 0.1, duration: 3.2 + Math.random() * 0.6, big: true },
+        { x: -34, y: midY, r: 6.5, coreR: 5.5, delay: 0.3, duration: 2.6 + Math.random() * 0.8 },
+        { x: -50, y: midY, r: 5, coreR: 4.2, delay: 0.5, duration: 2.6 + Math.random() * 0.8 },
       ])
     }
 
@@ -132,8 +133,15 @@ function ThoughtBubble({ text }) {
                   <circle key={`lobe-core-${i}`} cx={c.x} cy={c.y} r={c.coreR} fill="white" />
                 ))}
                 {circles.map((c, i) => (
-                  <circle key={`lobe-${i}`} className="cloud-mask-lobe" cx={c.x} cy={c.y} r={c.r} fill="white"
-                    style={{ animationDelay: `${c.delay}s` }} />
+                  <circle
+                    key={`lobe-${i}`}
+                    className="cloud-mask-lobe"
+                    cx={c.x}
+                    cy={c.y}
+                    r={c.r}
+                    fill="white"
+                    style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.duration}s` }}
+                  />
                 ))}
                 {tailDots.map((d, i) => (
                   <circle key={`dot-core-${i}`} cx={d.x} cy={d.y} r={d.coreR} fill="white" />
@@ -142,8 +150,11 @@ function ThoughtBubble({ text }) {
                   <circle
                     key={`dot-${i}`}
                     className={`cloud-mask-dot${d.big ? ' cloud-mask-dot-big' : ''}`}
-                    cx={d.x} cy={d.y} r={d.r} fill="white"
-                    style={{ animationDelay: `${d.delay}s`, transformOrigin: d.big ? `${d.x + d.r}px ${d.y}px` : undefined }}
+                    cx={d.x}
+                    cy={d.y}
+                    r={d.r}
+                    fill="white"
+                    style={{ animationDelay: `${d.delay}s`, animationDuration: `${d.duration}s`, transformOrigin: d.big ? `${d.x + d.r}px ${d.y}px` : undefined }}
                   />
                 ))}
               </mask>

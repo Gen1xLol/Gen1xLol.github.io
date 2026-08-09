@@ -128,13 +128,13 @@ nav a:hover {
 .cloud-mask-lobe {
   transform-box: fill-box;
   transform-origin: center;
-  animation: lobeWobble 3s ease-in-out infinite alternate;
+  animation: lobeWobble var(--anim-duration, 3s) ease-in-out infinite alternate;
 }
 
 .cloud-mask-dot {
   transform-box: fill-box;
   transform-origin: center;
-  animation: tailDotPulse 3s ease-in-out infinite alternate;
+  animation: tailDotPulse var(--anim-duration, 3s) ease-in-out infinite alternate;
 }
 
 .cloud-mask-dot-big {
