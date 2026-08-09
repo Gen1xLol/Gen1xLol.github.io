@@ -66,4 +66,5 @@ function shuffle(array) {
 
 THOUGHTS = shuffle(THOUGHTS);
 
+window.THOUGHTS = THOUGHTS;
 export default THOUGHTS
