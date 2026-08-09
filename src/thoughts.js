@@ -50,7 +50,23 @@ let THOUGHTS = [
   "vedal: wowie zowie",
   "ddededodediamante",
   "Z, 4, Q... another Q... a third Q... and the Batman symbol.",
-  "Ah... Argentina. Home to La Avenida Más Ancha del Mundo, El Río Más Ancho del Mundo, and Las Minas Más Lindas del Mundo... and dulce de leche." 
+  "Ah... Argentina. Home to La Avenida Más Ancha del Mundo, El Río Más Ancho del Mundo, and Las Minas Más Lindas del Mundo... and dulce de leche.",
+  "'I am a very good boy, and I will be a very good boy for the rest of my life.' <- this was a VS Code suggestion for some reason", 
+  "all the things that are wrong with this website are my fault, and all the things that are right with this website are your fault",
+  "your browser is a liar",
+  "water is wet, and so is your mom",
+  "notepad++ is awesome",
+  "DELTARUNE is a good game",
+  "DELTARUNE tomorrow!!!",
+  "las malvinas son argentinas",
+  "our mystery mayor man",
+  "english is a weird language",
+  "i HATE the word 'hate'",
+  "i LOVE the word 'love'",
+  "I am a person who is a person who is a person who is a person who is a person who is a person who is a person who is a person who is a person who is a person who is a person who is a person who is a person who is a person who is a person who is a person who is a person",
+  "Also play Minecraft!",
+  "Cellua is cool",
+  "<@694587798598058004> I'm going"
 ]
 
 function shuffle(array) {
