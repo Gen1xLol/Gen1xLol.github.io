@@ -11,7 +11,16 @@ function Man() {
     const prevTitle = document.title
     document.title = '* (Behind the tree.)'
 
+    const handleHashChange = () => {
+      if (window.location.hash.replace(/^#/, '') !== '/man') {
+        document.title = prevTitle
+      }
+    }
+
+    window.addEventListener('hashchange', handleHashChange)
+
     return () => {
+      window.removeEventListener('hashchange', handleHashChange)
       document.title = prevTitle
     }
   }, [])
