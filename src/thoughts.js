@@ -13,6 +13,7 @@ let THOUGHTS = [
   "el que te pinchaba con los alfilerardos",
   "baseball.",
   "huh?", // i am very funny
+  "welcome to my tiny corner in the ever-expanding interwebs",
   "first you get the sugar, then you get the power, then you get the women",
   "67",
   "this status message is a status message",
@@ -40,6 +41,7 @@ let THOUGHTS = [
   "the cloud this text is floating on was very hard to code",
   "mweheheheheheh",
   "Better Call Saul!",
+  "Better Fall Saul!",
   "Better Fuel Huell!",
   "Breaking Bad",
   "Fixing Good",
