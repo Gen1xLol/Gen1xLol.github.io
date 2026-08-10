@@ -22,6 +22,46 @@ function hexToRgb(hex) {
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
 }
 
+function drawCanvasTextPreview(canvas, block) {
+  const width = Math.max(1, Math.ceil(block.naturalWidth + 20))
+  const height = Math.max(1, Math.ceil(block.naturalHeight + 20))
+  canvas.width = width
+  canvas.height = height
+
+  const ctx = canvas.getContext('2d')
+  ctx.clearRect(0, 0, width, height)
+  ctx.font = `400 26px 'Gen1x Rough', cursive, sans-serif`
+  ctx.textBaseline = 'alphabetic'
+  ctx.fillStyle = '#000'
+
+  let cy = 10 + 26 * 0.82
+  for (const line of block.lines) {
+    const lineOffset = 10
+    for (const seg of line.segs) {
+      if (seg.isSpace) continue
+      for (const { ch, x } of seg.chars) {
+        ctx.fillText(ch, lineOffset + x, cy)
+      }
+    }
+    cy += block.lineHeight
+  }
+}
+
+function logCanvasImageToConsole(canvas) {
+  if (!canvas || typeof canvas.toDataURL !== 'function') return
+  try {
+    const dataUrl = canvas.toDataURL('image/png')
+    const style = `font-size:0; padding:${Math.max(1, Math.ceil(canvas.height / 2))}px ${Math.max(1, Math.ceil(canvas.width / 2))}px; background: url('${dataUrl}') no-repeat center / contain;`
+    console.log('%c ', style)
+  } catch (error) {
+    console.log('Failed to log canvas image', error)
+  }
+}
+
+function isGen1xRoughLoaded() {
+  return typeof document !== 'undefined' && document.fonts && document.fonts.check(`1em 'Gen1x Rough'`)
+}
+
 const FILL_TOP = hexToRgb('#4c2f8c')
 const FILL_MID = hexToRgb('#2f1c5e')
 const FILL_BOTTOM = hexToRgb('#170f33')
@@ -294,6 +334,7 @@ function ThoughtBubble({ text, gap = margin }) {
   const measureCanvasRef = useRef(null)
   const measureElRef = useRef(null)
   const lastTextRef = useRef(null)
+  const loggedCanvasImageRef = useRef(false)
   const [size, setSize] = useState({ width: 0, height: 0 })
   const [svgMargin, setSvgMargin] = useState(0)
 
@@ -333,6 +374,11 @@ function ThoughtBubble({ text, gap = margin }) {
       }
 
       const block = measureTextBlock(mctx, cleanText, FONT_SIZE, maxTextWidth, measureElRef)
+      if (measureCanvasRef.current && !loggedCanvasImageRef.current && isGen1xRoughLoaded()) {
+        drawCanvasTextPreview(measureCanvasRef.current, block)
+        logCanvasImageToConsole(measureCanvasRef.current)
+        loggedCanvasImageRef.current = true
+      }
       const contentWidth = Math.ceil(block.naturalWidth) + PAD_X * 2
       const contentHeight = Math.ceil(block.naturalHeight) + PAD_Y * 2
 
