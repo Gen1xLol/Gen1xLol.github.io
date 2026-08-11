@@ -136,12 +136,12 @@ function shuffle(array) {
 }
 
 function shuffleThoughts() {
+  console.log("shuffle shuffle")
   THOUGHTS = shuffle(THOUGHTS);
   window.THOUGHTS_RND = THOUGHTS;
 }
 
 window.THOUGHTS = THOUGHTS;
-THOUGHTS = shuffle(THOUGHTS);
+shuffleThoughts();
 
-window.THOUGHTS_RND = THOUGHTS;
 export { THOUGHTS, shuffleThoughts };
