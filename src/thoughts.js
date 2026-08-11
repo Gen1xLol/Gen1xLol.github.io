@@ -15,7 +15,11 @@ let THOUGHTS = [
   "huh?", // i am very funny
   "welcome to my tiny corner in the ever-expanding interwebs",
   "first you get the sugar, then you get the power, then you get the women",
-  "first you get the SWORD, then you get STRONGER, then you get THE GIRL.",
+  "first you get the SWORD, then you BECOME STRONGER, then you get THE GIRL.",
+  "BECOME STRONGER",
+  "PROCEED",
+  "Daveeeey! How you doin'?",
+  "the best way to get a girlfriend is to be a good boyfriend",
   "67",
   "this splash text is definitely a splash text",
   "Mike DELTARUNE is definitely a cat!",
