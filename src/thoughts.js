@@ -115,6 +115,13 @@ let THOUGHTS = [
   "what is the meaning of life? the answer may be 42, but the question is more important than the answer.",
   "i believe that you should do a flip every day, because it is good for your health and your SOUL.",
   "Man...",
+  "GET IT, GET IT DONE! GET IT, GET IT DONE!",
+  "Tung Tung Tung Tung Tung Tung Tung Tung Tung Tung Tung Tung Tung Tung Tung Tung Tung Tung Tung Tung Tung Tung Tung",
+  "Tung Tung Tung Sahur!",
+  "Triple T approved!",
+  "Parker, Quentin, Portland.",
+  "What are you doing here?",
+  "the list of splash texts is available at window.THOUGHTS, and window.THOUGHTS_RND (which is a shuffled version of this list.)",
 ]
 
 function shuffle(array) {
