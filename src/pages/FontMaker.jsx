@@ -958,17 +958,10 @@ function computeTableChecksum(bytes) {
   return sum
 }
 
-function makeKernTableBuffer(kerningPairs) {
-  const entries = Object.keys(kerningPairs)
-    .map(key => {
-      const [l, r] = key.split(',').map(Number)
-      return { left: l, right: r, value: kerningPairs[key] }
-    })
-    .filter(e => e.value !== 0)
-    .sort((a, b) => (a.left - b.left) || (a.right - b.right))
+const KERN_SUBTABLE_HEADER_SIZE = 14
+const KERN_MAX_PAIRS_PER_SUBTABLE = Math.floor((0xFFFF - KERN_SUBTABLE_HEADER_SIZE) / 6)
 
-  if (entries.length === 0) return null
-
+function encodeKernSubtable(entries) {
   const nPairs = entries.length
   let searchRange = 1
   let entrySelector = 0
@@ -981,14 +974,10 @@ function makeKernTableBuffer(kerningPairs) {
 
   const subtableBodySize = 8 + nPairs * 6
   const subtableSize = 6 + subtableBodySize
-  const totalSize = 4 + subtableSize
 
-  const buf = new ArrayBuffer(totalSize)
+  const buf = new ArrayBuffer(subtableSize)
   const view = new DataView(buf)
   let o = 0
-  view.setUint16(o, 0); o += 2
-  view.setUint16(o, 1); o += 2
-
   view.setUint16(o, 0); o += 2
   view.setUint16(o, subtableSize); o += 2
   view.setUint16(o, 0x0001); o += 2
@@ -1002,6 +991,37 @@ function makeKernTableBuffer(kerningPairs) {
     view.setUint16(o, e.left); o += 2
     view.setUint16(o, e.right); o += 2
     view.setInt16(o, e.value); o += 2
+  }
+
+  return buf
+}
+
+function makeKernTableBuffer(kerningPairs) {
+  const entries = Object.keys(kerningPairs)
+    .map(key => {
+      const [l, r] = key.split(',').map(Number)
+      return { left: l, right: r, value: kerningPairs[key] }
+    })
+    .filter(e => e.value !== 0)
+    .sort((a, b) => (a.left - b.left) || (a.right - b.right))
+
+  if (entries.length === 0) return null
+
+  const subtables = []
+  for (let i = 0; i < entries.length; i += KERN_MAX_PAIRS_PER_SUBTABLE) {
+    subtables.push(encodeKernSubtable(entries.slice(i, i + KERN_MAX_PAIRS_PER_SUBTABLE)))
+  }
+
+  const totalSize = 4 + subtables.reduce((sum, s) => sum + s.byteLength, 0)
+  const buf = new ArrayBuffer(totalSize)
+  const view = new DataView(buf)
+  const bytes = new Uint8Array(buf)
+  let o = 0
+  view.setUint16(o, 0); o += 2
+  view.setUint16(o, subtables.length); o += 2
+  for (const subtable of subtables) {
+    bytes.set(new Uint8Array(subtable), o)
+    o += subtable.byteLength
   }
 
   return buf
