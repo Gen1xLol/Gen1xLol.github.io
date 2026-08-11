@@ -624,20 +624,36 @@ function ThoughtBubble({ text, gap = margin, onClick }) {
 
       ctx.save()
       ctx.translate(frame.svgMargin, frame.svgMargin)
-      drawText(ctx, t, now, layout.textBlock, frame.width, frame.height)
+      drawText(ctx, t, now, layout.textBlock, frame.width, frame.height, shape)
       ctx.restore()
 
       rafRef.current = requestAnimationFrame(draw)
     }
 
-    function drawText(ctx, t, now, block, frameWidth, frameHeight) {
+    function drawText(ctx, t, now, block, frameWidth, frameHeight, shape) {
       const TRANSITION_MS = 280
       const RISE_PX = 10
+
+      const textCamera = { tx: 0, ty: 0, sx: 1, sy: 1 }
+      if (shape) {
+        if (shape.startTime === null) shape.startTime = now
+        const elapsed = now - shape.startTime
+        const progress = Math.min(1, elapsed / TRANSITION_MS)
+        const eased = 1 - Math.pow(1 - progress, 2)
+        textCamera.sx = lerp(shape.fromW / shape.toW, 1, eased)
+        textCamera.sy = lerp(shape.fromH / shape.toH, 1, eased)
+        textCamera.tx = (frameWidth - frameWidth * textCamera.sx) / 2
+        textCamera.ty = (frameHeight - frameHeight * textCamera.sy) / 2
+      }
 
       function drawBlock(block, offsetY, alpha) {
         if (alpha <= 0) return
         const fontSize = 26
         ctx.save()
+        ctx.translate(textCamera.tx, textCamera.ty)
+        ctx.translate(frameWidth * 0.5, frameHeight * 0.5)
+        ctx.scale(textCamera.sx, textCamera.sy)
+        ctx.translate(-frameWidth * 0.5, -frameHeight * 0.5)
         ctx.globalAlpha = alpha
         ctx.font = `400 ${fontSize}px 'Gen1x Rough', cursive, sans-serif`
         ctx.textBaseline = 'alphabetic'
