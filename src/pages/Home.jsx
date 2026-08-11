@@ -424,21 +424,15 @@ function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
       }
 
       if (prevLayout && prevLayout._w === width && prevLayout._h === height) {
-        const layout = buildLobeLayout(width, height, prevLayout, false)
-        layout._w = width
-        layout._h = height
-        layout.textBlock = block
-
         if (textChanged && prevLayout.textBlock) {
           transitionRef.current = { outBlock: prevLayout.textBlock, startTime: null }
         }
 
         prevLayout.textBlock = block
-        layoutRef.current = layout
         containerRef.current.style.width = `${contentWidth}px`
         containerRef.current.style.height = `${contentHeight}px`
         setSize(prev => (prev.width === width && prev.height === height ? prev : { width, height }))
-        setSvgMargin(prev => (prev === layout.svgMargin ? prev : layout.svgMargin))
+        setSvgMargin(prev => (prev === prevLayout.svgMargin ? prev : prevLayout.svgMargin))
         requestAnimationFrame(() => { applying = false })
         return
       }

@@ -127,7 +127,7 @@ nav a:hover {
   animation: cloudFloat 2.5s ease-in-out infinite;
   animation-delay: 0.75s;
   box-sizing: border-box;
-  transition: transform 0.12s ease;
+  transition: transform 0.12s ease, width 0.28s ease, height 0.28s ease;
 }
 
 .thought-bubble-wrapper[role="button"]:active .thought-bubble-procedural {
