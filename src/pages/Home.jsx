@@ -739,50 +739,15 @@ function ThoughtBubble({ text, gap = margin, onClick }) {
     }
   }, [size, svgMargin, cleanText, isShake])
 
-  function handleWrapperClick(e) {
-    try {
-      const prevLayout = layoutRef.current
-      const w = size.width || (prevLayout && prevLayout._w) || 0
-      const h = size.height || (prevLayout && prevLayout._h) || 0
-      if (w > 0 && h > 0) {
-        const newLayout = buildLobeLayout(w, h, null)
-        newLayout._w = w
-        newLayout._h = h
-        if (typeof newLayout.svgMargin === 'undefined') newLayout.svgMargin = 0
-
-        if (prevLayout) {
-          shapeTransitionRef.current = {
-            fromLayout: prevLayout,
-            fromW: prevLayout._w || w,
-            fromH: prevLayout._h || h,
-            fromMargin: prevLayout.svgMargin || 0,
-            toLayout: newLayout,
-            toW: newLayout._w || w,
-            toH: newLayout._h || h,
-            toMargin: newLayout.svgMargin || 0,
-            startTime: null,
-          }
-        }
-        layoutRef.current = newLayout
-        setSize(prev => (prev.width === w && prev.height === h ? prev : { width: w, height: h }))
-        setSvgMargin(newLayout.svgMargin)
-      }
-    } catch (err) {
-      console.error('Failed to randomize thought bubble shape', err)
-    }
-
-    if (onClick) onClick(e)
-  }
-
   return (
     <div
       className="thought-bubble-wrapper fade-in"
       style={{ animationDelay: '0.6s', marginLeft: `${svgMargin + gap}px`, cursor: onClick ? 'pointer' : undefined }}
       title="Click to cycle"
-      onClick={handleWrapperClick}
+      onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
-      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleWrapperClick(e) } } : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e) } } : undefined}
     >
       <div className="thought-bubble-procedural" ref={containerRef}>
         {size.width > 0 && (
