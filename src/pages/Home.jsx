@@ -766,7 +766,9 @@ export default function Home() {
   const [projects, setProjects] = useState([])
   const [thoughtIndex, setThoughtIndex] = useState(() => Math.floor(Math.random() * THOUGHTS.length))
   const spanishTipRef = useRef(null)
-  const thought = THOUGHTS[thoughtIndex]
+  var thought = THOUGHTS[thoughtIndex]
+  var rnd = Math.floor(Math.random() * 10000)
+  thought = thought.replace(/\[rnd\]/g, rnd)
 
   function cycleThought() {
     shuffleThoughts();

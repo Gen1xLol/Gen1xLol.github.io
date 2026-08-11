@@ -122,6 +122,11 @@ let THOUGHTS = [
   "Parker, Quentin, Portland.",
   "What are you doing here?",
   "the list of splash texts is available at window.THOUGHTS, and window.THOUGHTS_RND (which is a shuffled version of this list.)",
+  "SCORE!!!",
+  "SCORE, SCORE, SCORE!!!",
+  "yeah... i'm gonna have to discount you [rnd] SCORE for that.",
+  "congratulations! you got [rnd] SCORE for that!",
+  "[[rnd]] liked this!",
 ]
 
 function shuffle(array) {
