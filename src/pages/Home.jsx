@@ -72,7 +72,7 @@ function getComputedColor(varName, fallback) {
   return v || fallback
 }
 
-function buildLobeLayout(width, height, prevLayout) {
+function buildLobeLayout(width, height, prevLayout, forceRandom = false) {
   const cap = Math.min(width, height) / 2.6
   const straightW = Math.max(0, width - cap * 2)
   const straightH = Math.max(0, height - cap * 2)
@@ -144,7 +144,7 @@ function buildLobeLayout(width, height, prevLayout) {
     }
 
     let rSeed, phase, duration
-    if (prevCount > 0) {
+    if (prevCount > 0 && !forceRandom) {
       const srcIdx = Math.min(prevCount - 1, Math.round((i / count) * prevCount))
       const src = prevCircles[srcIdx]
       rSeed = src.rSeed
@@ -158,9 +158,11 @@ function buildLobeLayout(width, height, prevLayout) {
 
     const r = rBase + rSeed * rBase * 0.5
     const inset = rBase * 0.35
+    const jitterX = (Math.random() - 0.5) * 6
+    const jitterY = (Math.random() - 0.5) * 6
     circles.push({
-      x: x - nx * inset,
-      y: y - ny * inset,
+      x: x - nx * inset + jitterX,
+      y: y - ny * inset + jitterY,
       r: r * 1.45,
       coreR: r * 1.3,
       rSeed,
@@ -325,7 +327,7 @@ function measureTextBlock(ctx, cleanText, fontSize, maxWidth, measureElRef) {
   return { lines, lineHeight, naturalWidth, naturalHeight, spaceWidth }
 }
 
-function ThoughtBubble({ text, gap = margin, onClick }) {
+function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
   const containerRef = useRef(null)
   const canvasRef = useRef(null)
   const layoutRef = useRef(null)
@@ -347,6 +349,28 @@ function ThoughtBubble({ text, gap = margin, onClick }) {
     measureCanvasRef.current = document.createElement('canvas')
   }
 
+  useEffect(() => {
+    if (!layoutRef.current || shapeSeed === 0) return
+
+    const currentLayout = layoutRef.current
+    const nextLayout = buildLobeLayout(currentLayout._w, currentLayout._h, currentLayout, true)
+    nextLayout._w = currentLayout._w
+    nextLayout._h = currentLayout._h
+    nextLayout.textBlock = currentLayout.textBlock
+
+    shapeTransitionRef.current = {
+      fromLayout: currentLayout,
+      fromW: currentLayout._w,
+      fromH: currentLayout._h,
+      fromMargin: currentLayout.svgMargin,
+      toLayout: nextLayout,
+      toW: currentLayout._w,
+      toH: currentLayout._h,
+      toMargin: nextLayout.svgMargin,
+      startTime: null,
+    }
+  }, [shapeSeed])
+
   useLayoutEffect(() => {
     if (!containerRef.current) return
 
@@ -359,6 +383,10 @@ function ThoughtBubble({ text, gap = margin, onClick }) {
 
     function recalc() {
       if (!containerRef.current || applying) return
+      if (shapeTransitionRef.current) {
+        requestAnimationFrame(() => { applying = false })
+        return
+      }
       applying = true
       const isMobile = window.matchMedia('(max-width: 520px)').matches
 
@@ -395,39 +423,32 @@ function ThoughtBubble({ text, gap = margin, onClick }) {
       const textChanged = lastTextRef.current !== null && lastTextRef.current !== cleanText
 
       if (prevLayout && prevLayout._w === width && prevLayout._h === height) {
+        const layout = buildLobeLayout(width, height, prevLayout, false)
+        layout._w = width
+        layout._h = height
+        layout.textBlock = block
+
         if (textChanged && prevLayout.textBlock) {
           transitionRef.current = { outBlock: prevLayout.textBlock, startTime: null }
         }
+
         prevLayout.textBlock = block
+        layoutRef.current = layout
         containerRef.current.style.width = `${contentWidth}px`
         containerRef.current.style.height = `${contentHeight}px`
         setSize(prev => (prev.width === width && prev.height === height ? prev : { width, height }))
-        setSvgMargin(prev => (prev === prevLayout.svgMargin ? prev : prevLayout.svgMargin))
+        setSvgMargin(prev => (prev === layout.svgMargin ? prev : layout.svgMargin))
         requestAnimationFrame(() => { applying = false })
         return
       }
 
-      const layout = buildLobeLayout(width, height, prevLayout)
+      const layout = buildLobeLayout(width, height, prevLayout, false)
       layout._w = width
       layout._h = height
       layout.textBlock = block
 
       if (textChanged && prevLayout && prevLayout.textBlock) {
         transitionRef.current = { outBlock: prevLayout.textBlock, startTime: null }
-        shapeTransitionRef.current = {
-          fromLayout: prevLayout,
-          fromW: prevLayout._w,
-          fromH: prevLayout._h,
-          fromMargin: prevLayout.svgMargin,
-          toLayout: layout,
-          toW: width,
-          toH: height,
-          toMargin: layout.svgMargin,
-          startTime: null,
-        }
-        layoutRef.current = layout
-        requestAnimationFrame(() => { applying = false })
-        return
       }
 
       layoutRef.current = layout
@@ -455,7 +476,7 @@ function ThoughtBubble({ text, gap = margin, onClick }) {
       ro.disconnect()
       window.removeEventListener('resize', recalc)
     }
-  }, [text, cleanText])
+  }, [text, cleanText, shapeSeed])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -555,6 +576,7 @@ function ThoughtBubble({ text, gap = margin, onClick }) {
 
         if (progress >= 1) {
           shapeTransitionRef.current = null
+          layoutRef.current = shape.toLayout
           sizeCanvasTo(shape.toW + shape.toMargin * 2, shape.toH + shape.toMargin * 2)
           if (containerRef.current) {
             containerRef.current.style.width = `${shape.toW}px`
@@ -781,6 +803,7 @@ export default function Home() {
   const [age, setAge] = useState('—')
   const [projects, setProjects] = useState([])
   const [thoughtIndex, setThoughtIndex] = useState(() => Math.floor(Math.random() * THOUGHTS.length))
+  const [bubbleShapeSeed, setBubbleShapeSeed] = useState(0)
   const spanishTipRef = useRef(null)
   var thought = THOUGHTS[thoughtIndex]
   var rnd = Math.floor(Math.random() * 10000)
@@ -788,6 +811,7 @@ export default function Home() {
 
   function cycleThought() {
     shuffleThoughts();
+    setBubbleShapeSeed(prev => prev + 1)
     setThoughtIndex(prev => {
       if (THOUGHTS.length <= 1) return prev
       let next = Math.floor(Math.random() * THOUGHTS.length)
@@ -842,7 +866,7 @@ export default function Home() {
               <em className="float-char" style={{ animationDelay: '0.45s' }}>1</em>
               <em className="float-char" style={{ animationDelay: '0.6s' }}>x</em>
             </h1>
-            <ThoughtBubble text={thought} onClick={cycleThought} />
+            <ThoughtBubble text={thought} onClick={cycleThought} shapeSeed={bubbleShapeSeed} />
           </div>
           <div className="fade-in" style={{ animationDelay: '1.4s' }}>
             <p className="prev">also known as <span>G1nX</span> / <span>YoSoyGena</span></p>
