@@ -383,10 +383,6 @@ function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
 
     function recalc() {
       if (!containerRef.current || applying) return
-      if (shapeTransitionRef.current) {
-        requestAnimationFrame(() => { applying = false })
-        return
-      }
       applying = true
       const isMobile = window.matchMedia('(max-width: 520px)').matches
 
@@ -421,6 +417,11 @@ function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
 
       const prevLayout = layoutRef.current
       const textChanged = lastTextRef.current !== null && lastTextRef.current !== cleanText
+      const activeShapeTarget = shapeTransitionRef.current && shapeTransitionRef.current.toLayout
+
+      if (activeShapeTarget) {
+        activeShapeTarget.textBlock = block
+      }
 
       if (prevLayout && prevLayout._w === width && prevLayout._h === height) {
         const layout = buildLobeLayout(width, height, prevLayout, false)
@@ -592,6 +593,9 @@ function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
 
       const cssW = canvasCssW
       const cssH = canvasCssH
+      const drawBlock = shapeTransitionRef.current && shapeTransitionRef.current.toLayout
+        ? shapeTransitionRef.current.toLayout.textBlock || layout.textBlock
+        : layout.textBlock
       canvas.style.setProperty('--svg-margin', `-${frame.svgMargin}px`)
 
       const grad = ctx.createLinearGradient(0, 0, 0, cssH)
@@ -646,7 +650,7 @@ function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
 
       ctx.save()
       ctx.translate(frame.svgMargin, frame.svgMargin)
-      drawText(ctx, t, now, layout.textBlock, frame.width, frame.height, shape)
+      drawText(ctx, t, now, drawBlock, frame.width, frame.height, shape)
       ctx.restore()
 
       rafRef.current = requestAnimationFrame(draw)
