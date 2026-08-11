@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import ExternalIcon from '../components/ExternalIcon.jsx'
 import MouseTooltip from '../components/MouseTooltip.jsx'
 import argentinaFlag from '../argentina.png'
-import THOUGHTS from '../thoughts.js'
+import { THOUGHTS, shuffleThoughts} from '../thoughts.js'
 import '../home.css'
 
 const margin = -40
@@ -769,6 +769,7 @@ export default function Home() {
   const thought = THOUGHTS[thoughtIndex]
 
   function cycleThought() {
+    shuffleThoughts();
     setThoughtIndex(prev => {
       if (THOUGHTS.length <= 1) return prev
       let next = Math.floor(Math.random() * THOUGHTS.length)

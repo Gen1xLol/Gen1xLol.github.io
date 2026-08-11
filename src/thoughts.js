@@ -135,8 +135,13 @@ function shuffle(array) {
   return shuffled;
 }
 
+function shuffleThoughts() {
+  THOUGHTS = shuffle(THOUGHTS);
+  window.THOUGHTS_RND = THOUGHTS;
+}
+
 window.THOUGHTS = THOUGHTS;
 THOUGHTS = shuffle(THOUGHTS);
 
 window.THOUGHTS_RND = THOUGHTS;
-export default THOUGHTS
+export { THOUGHTS, shuffleThoughts };
