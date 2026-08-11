@@ -325,7 +325,7 @@ function measureTextBlock(ctx, cleanText, fontSize, maxWidth, measureElRef) {
   return { lines, lineHeight, naturalWidth, naturalHeight, spaceWidth }
 }
 
-function ThoughtBubble({ text, gap = margin }) {
+function ThoughtBubble({ text, gap = margin, onClick }) {
   const containerRef = useRef(null)
   const canvasRef = useRef(null)
   const layoutRef = useRef(null)
@@ -335,6 +335,8 @@ function ThoughtBubble({ text, gap = margin }) {
   const measureElRef = useRef(null)
   const lastTextRef = useRef(null)
   const loggedCanvasImageRef = useRef(false)
+  const transitionRef = useRef(null)
+  const shapeTransitionRef = useRef(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
   const [svgMargin, setSvgMargin] = useState(0)
 
@@ -382,9 +384,6 @@ function ThoughtBubble({ text, gap = margin }) {
       const contentWidth = Math.ceil(block.naturalWidth) + PAD_X * 2
       const contentHeight = Math.ceil(block.naturalHeight) + PAD_Y * 2
 
-      containerRef.current.style.width = `${contentWidth}px`
-      containerRef.current.style.height = `${contentHeight}px`
-
       const width = contentWidth
       const height = contentHeight
       if (width === 0 || height === 0) {
@@ -393,8 +392,15 @@ function ThoughtBubble({ text, gap = margin }) {
       }
 
       const prevLayout = layoutRef.current
+      const textChanged = lastTextRef.current !== null && lastTextRef.current !== cleanText
+
       if (prevLayout && prevLayout._w === width && prevLayout._h === height) {
+        if (textChanged && prevLayout.textBlock) {
+          transitionRef.current = { outBlock: prevLayout.textBlock, startTime: null }
+        }
         prevLayout.textBlock = block
+        containerRef.current.style.width = `${contentWidth}px`
+        containerRef.current.style.height = `${contentHeight}px`
         setSize(prev => (prev.width === width && prev.height === height ? prev : { width, height }))
         setSvgMargin(prev => (prev === prevLayout.svgMargin ? prev : prevLayout.svgMargin))
         requestAnimationFrame(() => { applying = false })
@@ -405,8 +411,28 @@ function ThoughtBubble({ text, gap = margin }) {
       layout._w = width
       layout._h = height
       layout.textBlock = block
-      layoutRef.current = layout
 
+      if (textChanged && prevLayout && prevLayout.textBlock) {
+        transitionRef.current = { outBlock: prevLayout.textBlock, startTime: null }
+        shapeTransitionRef.current = {
+          fromLayout: prevLayout,
+          fromW: prevLayout._w,
+          fromH: prevLayout._h,
+          fromMargin: prevLayout.svgMargin,
+          toLayout: layout,
+          toW: width,
+          toH: height,
+          toMargin: layout.svgMargin,
+          startTime: null,
+        }
+        layoutRef.current = layout
+        requestAnimationFrame(() => { applying = false })
+        return
+      }
+
+      layoutRef.current = layout
+      containerRef.current.style.width = `${contentWidth}px`
+      containerRef.current.style.height = `${contentHeight}px`
       setSize(prev => (prev.width === width && prev.height === height ? prev : { width, height }))
       setSvgMargin(prev => (prev === layout.svgMargin ? prev : layout.svgMargin))
       requestAnimationFrame(() => { applying = false })
@@ -437,28 +463,70 @@ function ThoughtBubble({ text, gap = margin }) {
 
     const rawDpr = Math.max(1, window.devicePixelRatio || 1)
     const dpr = Math.min(rawDpr * 4, 8)
-    const cssW = size.width + svgMargin * 2
-    const cssH = size.height + svgMargin * 2
-
-    canvas.style.width = `${cssW}px`
-    canvas.style.height = `${cssH}px`
-    canvas.width = Math.round(cssW * dpr)
-    canvas.height = Math.round(cssH * dpr)
 
     const ctx = canvas.getContext('2d')
     const textColor = getComputedColor('--purple-lt', '#c4b5fd')
 
     const maskCanvas = document.createElement('canvas')
-    maskCanvas.width = canvas.width
-    maskCanvas.height = canvas.height
     const mctx = maskCanvas.getContext('2d')
 
-    const grad = ctx.createLinearGradient(0, 0, 0, cssH)
-    grad.addColorStop(0, `rgb(${FILL_TOP.r},${FILL_TOP.g},${FILL_TOP.b})`)
-    grad.addColorStop(0.45, `rgb(${FILL_MID.r},${FILL_MID.g},${FILL_MID.b})`)
-    grad.addColorStop(1, `rgb(${FILL_BOTTOM.r},${FILL_BOTTOM.g},${FILL_BOTTOM.b})`)
-
     const mobileQuery = window.matchMedia('(max-width: 520px)')
+
+    let canvasCssW = 0
+    let canvasCssH = 0
+
+    function sizeCanvasTo(cssW, cssH) {
+      if (cssW === canvasCssW && cssH === canvasCssH) return
+      canvasCssW = cssW
+      canvasCssH = cssH
+      canvas.style.width = `${cssW}px`
+      canvas.style.height = `${cssH}px`
+      canvas.width = Math.round(cssW * dpr)
+      canvas.height = Math.round(cssH * dpr)
+      maskCanvas.width = canvas.width
+      maskCanvas.height = canvas.height
+    }
+
+    sizeCanvasTo(size.width + svgMargin * 2, size.height + svgMargin * 2)
+
+    function lerp(a, b, p) { return a + (b - a) * p }
+
+    function interpolateLayout(shape, eased) {
+      const { fromLayout, toLayout } = shape
+      const w = lerp(shape.fromW, shape.toW, eased)
+      const h = lerp(shape.fromH, shape.toH, eased)
+      const svgMargin = lerp(shape.fromMargin, shape.toMargin, eased)
+      const cornerInset = lerp(fromLayout.cornerInset, toLayout.cornerInset, eased)
+
+      const toCount = toLayout.circles.length
+      const circles = toLayout.circles.map((toC, i) => {
+        const fromIdx = Math.min(fromLayout.circles.length - 1, Math.round((i / toCount) * fromLayout.circles.length))
+        const fromC = fromLayout.circles[fromIdx]
+        return {
+          x: lerp(fromC.x, toC.x, eased),
+          y: lerp(fromC.y, toC.y, eased),
+          r: lerp(fromC.r, toC.r, eased),
+          coreR: lerp(fromC.coreR, toC.coreR, eased),
+          phase: toC.phase,
+          duration: toC.duration,
+        }
+      })
+
+      const tailDots = toLayout.tailDots.map((toD, i) => {
+        const fromD = fromLayout.tailDots[i] || toD
+        return {
+          x: lerp(fromD.x, toD.x, eased),
+          y: lerp(fromD.y, toD.y, eased),
+          r: lerp(fromD.r, toD.r, eased),
+          coreR: lerp(fromD.coreR, toD.coreR, eased),
+          phase: toD.phase,
+          duration: toD.duration,
+          big: toD.big,
+        }
+      })
+
+      return { width: w, height: h, svgMargin, cornerInset, circles, tailDots }
+    }
 
     function draw(now) {
       if (startRef.current === null) startRef.current = now
@@ -469,24 +537,63 @@ function ThoughtBubble({ text, gap = margin }) {
         return
       }
 
+      const SHAPE_TRANSITION_MS = 280
+      const shape = shapeTransitionRef.current
+      let frame
+
+      if (shape) {
+        if (shape.startTime === null) shape.startTime = now
+        const elapsed = now - shape.startTime
+        const progress = Math.min(1, elapsed / SHAPE_TRANSITION_MS)
+        const eased = 1 - Math.pow(1 - progress, 2)
+
+        const maxW = Math.max(shape.fromW, shape.toW) + Math.max(shape.fromMargin, shape.toMargin) * 2
+        const maxH = Math.max(shape.fromH, shape.toH) + Math.max(shape.fromMargin, shape.toMargin) * 2
+        sizeCanvasTo(maxW, maxH)
+
+        frame = interpolateLayout(shape, eased)
+
+        if (progress >= 1) {
+          shapeTransitionRef.current = null
+          sizeCanvasTo(shape.toW + shape.toMargin * 2, shape.toH + shape.toMargin * 2)
+          if (containerRef.current) {
+            containerRef.current.style.width = `${shape.toW}px`
+            containerRef.current.style.height = `${shape.toH}px`
+          }
+          setSize({ width: shape.toW, height: shape.toH })
+          setSvgMargin(shape.toMargin)
+        }
+      } else {
+        sizeCanvasTo(size.width + svgMargin * 2, size.height + svgMargin * 2)
+        frame = { width: size.width, height: size.height, svgMargin, cornerInset: layout.cornerInset, circles: layout.circles, tailDots: layout.tailDots }
+      }
+
+      const cssW = canvasCssW
+      const cssH = canvasCssH
+      canvas.style.setProperty('--svg-margin', `-${frame.svgMargin}px`)
+
+      const grad = ctx.createLinearGradient(0, 0, 0, cssH)
+      grad.addColorStop(0, `rgb(${FILL_TOP.r},${FILL_TOP.g},${FILL_TOP.b})`)
+      grad.addColorStop(0.45, `rgb(${FILL_MID.r},${FILL_MID.g},${FILL_MID.b})`)
+      grad.addColorStop(1, `rgb(${FILL_BOTTOM.r},${FILL_BOTTOM.g},${FILL_BOTTOM.b})`)
+
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.clearRect(0, 0, cssW, cssH)
 
       mctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       mctx.clearRect(0, 0, cssW, cssH)
       mctx.save()
-      mctx.translate(svgMargin, svgMargin)
+      mctx.translate(frame.svgMargin, frame.svgMargin)
       mctx.fillStyle = '#fff'
 
-      const { cornerInset } = layout
-      const rw = Math.max(0, size.width - cornerInset * 2)
-      const rh = Math.max(0, size.height - cornerInset * 2)
+      const rw = Math.max(0, frame.width - frame.cornerInset * 2)
+      const rh = Math.max(0, frame.height - frame.cornerInset * 2)
       mctx.beginPath()
-      mctx.roundRect(cornerInset, cornerInset, rw, rh, 9999)
+      mctx.roundRect(frame.cornerInset, frame.cornerInset, rw, rh, 9999)
       mctx.fill()
 
       mctx.beginPath()
-      for (const c of layout.circles) {
+      for (const c of frame.circles) {
         const wobble = 1 + 0.09 * (Math.sin((t / c.duration) * Math.PI * 2 + c.phase) * 0.5 + 0.5)
         const radius = Math.max(c.coreR, c.r * wobble)
         mctx.moveTo(c.x + radius, c.y)
@@ -494,7 +601,7 @@ function ThoughtBubble({ text, gap = margin }) {
       }
       mctx.fill()
 
-      const visibleTailDots = mobileQuery.matches ? [] : layout.tailDots
+      const visibleTailDots = mobileQuery.matches ? [] : frame.tailDots
 
       mctx.beginPath()
       for (const d of visibleTailDots) {
@@ -516,76 +623,97 @@ function ThoughtBubble({ text, gap = margin }) {
       ctx.restore()
 
       ctx.save()
-      ctx.translate(svgMargin, svgMargin)
-      drawText(ctx, t, layout.textBlock)
+      ctx.translate(frame.svgMargin, frame.svgMargin)
+      drawText(ctx, t, now, layout.textBlock, frame.width, frame.height)
       ctx.restore()
 
       rafRef.current = requestAnimationFrame(draw)
     }
 
-    function drawText(ctx, t, block) {
-      const fontSize = 26
-      ctx.save()
-      ctx.font = `400 ${fontSize}px 'Gen1x Rough', cursive, sans-serif`
-      ctx.textBaseline = 'alphabetic'
-      ctx.fillStyle = textColor
+    function drawText(ctx, t, now, block, frameWidth, frameHeight) {
+      const TRANSITION_MS = 280
+      const RISE_PX = 10
 
-      const { lines, lineHeight } = block
-      const totalHeight = lines.length * lineHeight
-      let cy = (size.height - totalHeight) / 2 + fontSize * 0.82
-      let globalCharIndex = 0
-      ctx.textAlign = 'left'
+      function drawBlock(block, offsetY, alpha) {
+        if (alpha <= 0) return
+        const fontSize = 26
+        ctx.save()
+        ctx.globalAlpha = alpha
+        ctx.font = `400 ${fontSize}px 'Gen1x Rough', cursive, sans-serif`
+        ctx.textBaseline = 'alphabetic'
+        ctx.fillStyle = textColor
 
-      for (const line of lines) {
-        const lineOffset = (size.width - line.width) / 2
+        const { lines, lineHeight } = block
+        const totalHeight = lines.length * lineHeight
+        let cy = (frameHeight - totalHeight) / 2 + fontSize * 0.82 + offsetY
+        let globalCharIndex = 0
+        ctx.textAlign = 'left'
 
-        for (const seg of line.segs) {
-          if (seg.isSpace) continue
+        for (const line of lines) {
+          const lineOffset = (frameWidth - line.width) / 2
 
-          for (const { ch, x, w, shake } of seg.chars) {
-            let dx = 0, dy = 0, rot = 0
+          for (const seg of line.segs) {
+            if (seg.isSpace) continue
 
-            if (isShake) {
-              const dur = 0.26 * shake.durMul
-              const delay = -(shake.delayOffset * dur)
-              const phase = ((t - delay) / dur) % 1
-              const a = phase * Math.PI * 2
-              dx = Math.sin(a * shake.freqX + shake.phaseX) * shake.ampX * shake.signX
-              dy = Math.cos(a * shake.freqY + shake.phaseY) * shake.ampY * shake.signY
-              rot = Math.sin(a * shake.freqR + shake.phaseR) * shake.ampR
-            } else {
-              const dur = 2.5
-              const delay = (globalCharIndex * 0.1) % dur
-              const phase = ((t - delay) / dur) % 1
-              const a = phase >= 0 ? phase * Math.PI * 2 : (phase + 1) * Math.PI * 2
-              dy = -Math.sin(a) * 3
+            for (const { ch, x, w, shake } of seg.chars) {
+              let dx = 0, dy = 0, rot = 0
+
+              if (isShake) {
+                const dur = 0.26 * shake.durMul
+                const delay = -(shake.delayOffset * dur)
+                const phase = ((t - delay) / dur) % 1
+                const a = phase * Math.PI * 2
+                dx = Math.sin(a * shake.freqX + shake.phaseX) * shake.ampX * shake.signX
+                dy = Math.cos(a * shake.freqY + shake.phaseY) * shake.ampY * shake.signY
+                rot = Math.sin(a * shake.freqR + shake.phaseR) * shake.ampR
+              } else {
+                const dur = 2.5
+                const delay = (globalCharIndex * 0.1) % dur
+                const phase = ((t - delay) / dur) % 1
+                const a = phase >= 0 ? phase * Math.PI * 2 : (phase + 1) * Math.PI * 2
+                dy = -Math.sin(a) * 3
+              }
+
+              const cx = lineOffset + x
+
+              if (rot) {
+                ctx.save()
+                ctx.translate(cx + w / 2 + dx, cy + dy)
+                ctx.rotate(rot)
+                ctx.textAlign = 'center'
+                ctx.fillText(ch, 0, 0)
+                ctx.textAlign = 'left'
+                ctx.restore()
+              } else {
+                ctx.fillText(ch, cx + dx, cy + dy)
+              }
+
+              globalCharIndex++
             }
-
-            const cx = lineOffset + x
-
-            if (rot) {
-              ctx.save()
-              ctx.translate(cx + w / 2 + dx, cy + dy)
-              ctx.rotate(rot)
-              ctx.textAlign = 'center'
-              ctx.fillText(ch, 0, 0)
-              ctx.textAlign = 'left'
-              ctx.restore()
-            } else {
-              ctx.fillText(ch, cx + dx, cy + dy)
-            }
-
-            globalCharIndex++
           }
+          cy += lineHeight
         }
-        cy += lineHeight
+
+        ctx.restore()
       }
 
-      ctx.restore()
+      const transition = transitionRef.current
+      if (transition) {
+        if (transition.startTime === null) transition.startTime = now
+        const elapsed = now - transition.startTime
+        const progress = Math.min(1, elapsed / TRANSITION_MS)
+        const eased = 1 - Math.pow(1 - progress, 2)
+
+        drawBlock(transition.outBlock, eased * RISE_PX, 1 - eased)
+        drawBlock(block, (1 - eased) * -RISE_PX, eased)
+
+        if (progress >= 1) transitionRef.current = null
+      } else {
+        drawBlock(block, 0, 1)
+      }
     }
 
     if (lastTextRef.current !== cleanText) {
-      startRef.current = null
       lastTextRef.current = cleanText
     }
 
@@ -596,7 +724,15 @@ function ThoughtBubble({ text, gap = margin }) {
   }, [size, svgMargin, cleanText, isShake])
 
   return (
-    <div className="thought-bubble-wrapper fade-in" style={{ animationDelay: '0.6s', marginLeft: `${svgMargin + gap}px` }}>
+    <div
+      className="thought-bubble-wrapper fade-in"
+      style={{ animationDelay: '0.6s', marginLeft: `${svgMargin + gap}px`, cursor: onClick ? 'pointer' : undefined }}
+      title="Click to cycle"
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e) } } : undefined}
+    >
       <div className="thought-bubble-procedural" ref={containerRef}>
         {size.width > 0 && (
           <canvas
@@ -628,8 +764,18 @@ function ThoughtBubble({ text, gap = margin }) {
 export default function Home() {
   const [age, setAge] = useState('—')
   const [projects, setProjects] = useState([])
-  const [thought] = useState(() => THOUGHTS[Math.floor(Math.random() * THOUGHTS.length)])
+  const [thoughtIndex, setThoughtIndex] = useState(() => Math.floor(Math.random() * THOUGHTS.length))
   const spanishTipRef = useRef(null)
+  const thought = THOUGHTS[thoughtIndex]
+
+  function cycleThought() {
+    setThoughtIndex(prev => {
+      if (THOUGHTS.length <= 1) return prev
+      let next = Math.floor(Math.random() * THOUGHTS.length)
+      while (next === prev) next = Math.floor(Math.random() * THOUGHTS.length)
+      return next
+    })
+  }
 
   useEffect(() => {
     setAge(calcAge())
@@ -677,7 +823,7 @@ export default function Home() {
               <em className="float-char" style={{ animationDelay: '0.45s' }}>1</em>
               <em className="float-char" style={{ animationDelay: '0.6s' }}>x</em>
             </h1>
-            <ThoughtBubble text={thought} />
+            <ThoughtBubble text={thought} onClick={cycleThought} />
           </div>
           <div className="fade-in" style={{ animationDelay: '1.4s' }}>
             <p className="prev">also known as <span>G1nX</span></p>

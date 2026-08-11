@@ -127,6 +127,17 @@ nav a:hover {
   animation: cloudFloat 2.5s ease-in-out infinite;
   animation-delay: 0.75s;
   box-sizing: border-box;
+  transition: transform 0.12s ease;
+}
+
+.thought-bubble-wrapper[role="button"]:active .thought-bubble-procedural {
+  transform: scale(0.96);
+}
+
+.thought-bubble-wrapper[role="button"]:focus-visible {
+  outline: 2px solid var(--purple-dim);
+  outline-offset: 4px;
+  border-radius: 20px;
 }
 .cloud-gradient-canvas {
   position: absolute;
