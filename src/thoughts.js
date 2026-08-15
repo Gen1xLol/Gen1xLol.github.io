@@ -144,7 +144,8 @@ let THOUGHTS = [
   "So, to answer your question, No!",
   "And as always, f*cks for watching.",
   "D or E or Oreo orro or Vsauce or Cvause. Abreviiiviiiviiiation for Hawk Tuah",
-  "So Gukesh opened with e5, and in this position, Magnus RESIGNED! (what a coward!)"
+  "So Gukesh opened with e5, and in this position, Magnus RESIGNED! (what a coward!)",
+  "MIKE, the WEBSITE, please...!"
 ]
 
 function shuffle(array) {
