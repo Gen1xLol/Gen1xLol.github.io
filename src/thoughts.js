@@ -146,7 +146,9 @@ let THOUGHTS = [
   "D or E or Oreo orro or Vsauce or Cvause. Abreviiiviiiviiiation for Hawk Tuah",
   "So Gukesh opened with e5, and in this position, Magnus RESIGNED! (what a coward!)",
   "MIKE, the WEBSITE, please...!",
-  "Haha, walking now. Dinerstyle with the boys... we go."
+  "Haha, walking now. Dinerstyle with the boys... we go.",
+  "English low-cost lesson no. 1: \"of nothing\" (de nada)",
+  "English low-cost lesson no. 2: \"if, if, between\" (sí, sí, entre)",
 ]
 
 function shuffle(array) {
