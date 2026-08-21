@@ -149,6 +149,9 @@ let THOUGHTS = [
   "Haha, walking now. Dinerstyle with the boys... we go.",
   "English low-cost lesson no. 1: \"of nothing\" (de nada)",
   "English low-cost lesson no. 2: \"if, if, between\" (sí, sí, entre)",
+  "You cannot travel faster than lamps in US courtrooms.",
+  "Top things I hate: 1. Scratch's VM",
+  "Top things I love: 1. my boyfriend, 2. SyntaxErrors on Pizza",
 ]
 
 function shuffle(array) {
