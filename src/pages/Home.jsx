@@ -867,7 +867,7 @@ export default function Home() {
             <ThoughtBubble text={thought} onClick={cycleThought} shapeSeed={bubbleShapeSeed} />
           </div>
           <div className="fade-in" style={{ animationDelay: '1.4s' }}>
-            <p className="prev">also known as <span>G1nX</span> / <span>YoSoyGena</span></p>
+            <p className="prev">AKA: <span><a href="https://github.com/Gen1xLol" target="_blank" rel="noopener">Gen1xLol</a></span> / <span>YoSoyGena</span> / <span>G1nX</span> (very ocasionally)</p>
             <div className="age-line">
               <span className="age-num" id="age-display">{age}</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
