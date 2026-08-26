@@ -868,10 +868,10 @@ export default function Home() {
           </div>
           <div className="fade-in" style={{ animationDelay: '1.4s' }}>
             <p className="prev">AKA: <span><a href="https://github.com/Gen1xLol" target="_blank" rel="noopener">Gen1xLol</a></span> / <span>YoSoyGena</span> / <span>G1nX</span> (very ocasionally)</p>
-            <div className="age-line">
+			<div className="age-line">
               <span className="age-num" id="age-display">{age}</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                years old from <img src={argentinaFlag} alt="Argentina" style={{ width: '24px', height: '24px', objectFit: 'contain', verticalAlign: 'middle' }} />
+                years old from <img src={argentinaFlag} alt="Argentina" style={{ width: '24px', height: '24px', objectFit: 'contain', verticalAlign: 'middle' }} /> <p style={{ color: 'var(--soft)' }}>(he/him)</p>
               </span>
             </div>
           </div>
