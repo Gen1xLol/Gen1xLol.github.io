@@ -886,7 +886,7 @@ export default function Home() {
             <br /><br />
             I like creating PenguinMod extensions that people find useful. It feels like a fair test of my abilities as a programmer.
             Some notable ones are <strong style={{ color: 'var(--text)', fontWeight: 500 }}>Beat Sync</strong> and <strong style={{ color: 'var(--text)', fontWeight: 500 }}>Lighting</strong>.
-            I'm listed as <span>G1nX</span> on the PenguinMod Extra Gallery.
+            Also, if you use something of mine for, say, a game, you can let me know if you want! I genuinely love seeing people use my work :D
             <br /><br />
             I really like the challenging parts in programming. I like looking at things from different angles, trying to piece things together. I hope this doesn't sound pretentious lol
             <br /><br />

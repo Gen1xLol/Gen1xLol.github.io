@@ -1,7 +1,33 @@
+.qa-page {
+  padding-bottom: 72px;
+  overflow-x: hidden;
+}
+.qa-page h1 {
+  overflow-wrap: anywhere;
+  text-align: center;
+}
 .qa-container {
   display: flex;
   flex-direction: column;
   gap: 32px;
+}
+.qa-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 28px 0 36px;
+}
+.qa-tabs button {
+  background: transparent;
+  border: 1px solid var(--purple-dim);
+  color: var(--mid);
+  cursor: pointer;
+  font: inherit;
+  padding: 8px 14px;
+}
+.qa-tabs button.active,
+.qa-tabs button:hover {
+  background: var(--purple-dim);
+  color: var(--text);
 }
 .qa-item {
   border-left: 2px solid var(--purple-dim);
@@ -16,4 +42,11 @@
 .answer {
   color: var(--mid);
   font-size: 15px;
+}
+.qa-image {
+  display: block;
+  height: auto;
+  margin-bottom: 6px;
+  max-width: 100%;
+  width: auto;
 }
