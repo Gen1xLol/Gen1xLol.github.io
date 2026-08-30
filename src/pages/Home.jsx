@@ -938,6 +938,10 @@ export default function Home() {
                 <ExternalIcon />
                 Antimony
               </a>
+			  <a className="project-link-chip" href="https://penguinmod-wiki.github.io/penguinblocks/" target="_blank" rel="noopener">
+                <ExternalIcon />
+                PenguinBlocks
+              </a>
             </div>
 
             <div className="ext-grid" id="ext-grid" style={projects === null ? { display: 'none' } : undefined}>
