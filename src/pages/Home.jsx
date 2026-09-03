@@ -9,6 +9,7 @@ import '../home.css'
 const margin = -40
 
 function calcAge() {
+  // march 16th, 2010 at 12:27 UTC-3
   const birth = new Date(Date.UTC(2010, 2, 16, 15, 27, 0))
   const now = new Date()
   let y = now.getUTCFullYear() - birth.getUTCFullYear()
