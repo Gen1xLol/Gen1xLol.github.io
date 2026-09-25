@@ -1054,12 +1054,13 @@ export default function Home() {
             )}
 
             <div className="ext-grid" id="ext-grid" style={projects === null ? { display: 'none' } : undefined}>
-              {visibleProjects.map((p, i) => (
-                <div className="ext-card" key={i}>
+              {visibleProjects.map(p => (
+                <div className="ext-card" key={p.image || p.name}>
                   <img
                     src={p.image}
                     alt={p.name}
-                    loading="lazy"
+                    loading="eager"
+                    decoding="async"
                     onError={(e) => { e.currentTarget.style.display = 'none' }}
                   />
                   <div className="ext-overlay">

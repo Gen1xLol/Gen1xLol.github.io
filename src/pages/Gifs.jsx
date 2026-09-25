@@ -257,10 +257,6 @@ function GifBrowser({ jsonPath, gifFolder, copyUrlBase }) {
     return filteredGifs.slice(start, start + PAGE_SIZE)
   }, [filteredGifs, page])
 
-  useEffect(() => {
-    setPage(1)
-  }, [query])
-
   const handlePage = (p) => {
     setPage(p)
     if (containerRef.current) {
@@ -287,7 +283,10 @@ function GifBrowser({ jsonPath, gifFolder, copyUrlBase }) {
           className="gif-search-input"
           placeholder="Search buttons by their text..."
           value={query}
-          onChange={e => setQuery(e.target.value)}
+          onChange={e => {
+            setQuery(e.target.value)
+            setPage(1)
+          }}
         />
         <span className="gif-results-count">
           {allGifs.length === 0
@@ -301,10 +300,10 @@ function GifBrowser({ jsonPath, gifFolder, copyUrlBase }) {
       <Pagination page={page} totalPages={totalPages} onPage={handlePage} />
 
       <div className="gif-grid">
-        {displayedGifs.map((item, i) => (
+        {displayedGifs.map(item => (
           <div
             className="gif-card"
-            key={i}
+            key={item.filename}
             onClick={() => handleCopy(item)}
             title="Click to copy HTML embed code"
           >
@@ -312,7 +311,8 @@ function GifBrowser({ jsonPath, gifFolder, copyUrlBase }) {
               <img
                 src={`/${gifFolder}/${encodeURIComponent(item.filename)}`}
                 alt={item.text || '88x31 button'}
-                loading="lazy"
+                loading="eager"
+                decoding="async"
               />
             </div>
             <div className="gif-card-text">
