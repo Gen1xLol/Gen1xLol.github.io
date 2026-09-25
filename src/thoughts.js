@@ -152,6 +152,12 @@ let THOUGHTS = [
   "You cannot travel faster than lamps in US courtrooms.",
   "Top things I hate: 1. Scratch's VM",
   "Top things I love: 1. my boyfriend, 2. SyntaxErrors on Pizza",
+  "Hey, Fruitjuice. You been working 2much2play.",
+  "Absolute JARONA!",
+  "The Lord yeeteth, and the Lord yoinketh away.",
+  "The big one!",
+  "One. Last. Score.",
+  "Adrian Christian Hernandez (as the locals call him, A)"
 ]
 
 function shuffle(array) {
