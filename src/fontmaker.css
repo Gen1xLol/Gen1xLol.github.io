@@ -773,3 +773,162 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 640px) {
+  .fm-page-header-inner {
+    gap: 12px;
+  }
+
+  .fm-page-title-group {
+    flex: 1;
+    min-width: 0;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .fm-page-subtitle {
+    font-size: 0.76rem;
+  }
+
+  .fm-export-bar {
+    align-items: stretch;
+  }
+
+  .fm-export-buttons {
+    flex: 1 1 100%;
+  }
+
+  .fm-export-btn {
+    flex: 1 1 auto;
+    padding: 10px 12px;
+  }
+
+  .fm-clear-all-btn {
+    align-self: flex-start;
+  }
+
+  .fm-toolbar-row3 > .fm-toolbar-group:first-child,
+  .fm-toolbar-row3 > .fm-toolbar-group:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .fm-editor,
+  .fm-preview,
+  .fm-typebox {
+    padding: 12px;
+  }
+
+  .fm-tool-row {
+    gap: 6px;
+  }
+
+  .fm-tool-btn {
+    padding: 8px 10px;
+  }
+
+  .fm-editor-actions {
+    margin-left: auto;
+  }
+
+  .fm-nav-btn {
+    padding: 9px 10px;
+  }
+}
+
+@media (max-width: 460px) {
+  .fm-main {
+    padding: 18px 12px 36px;
+  }
+
+  .fm-page-header-inner {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .fm-page-title-group {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .fm-toolbar,
+  .fm-toolbar-row3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 10px;
+  }
+
+  .fm-toolbar {
+    padding: 14px 12px;
+  }
+
+  .fm-toolbar-row3 {
+    padding-top: 12px;
+  }
+
+  .fm-import-btn-row {
+    flex-direction: column;
+  }
+
+  .fm-import-btn {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .fm-nav-bar {
+    gap: 6px;
+  }
+
+  .fm-nav-btn {
+    gap: 4px;
+    font-size: 0.78rem;
+    padding: 9px 8px;
+  }
+
+  .fm-current-char {
+    font-size: 2rem;
+  }
+
+  .fm-strip {
+    gap: 5px;
+    padding: 10px;
+  }
+
+  .fm-strip-item {
+    width: 32px;
+    height: 32px;
+  }
+
+  .fm-add-symbol-bar {
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .fm-symbol-input {
+    flex: 1 1 100px;
+    width: auto;
+  }
+
+  .fm-about-section {
+    padding: 14px 12px 16px;
+  }
+}
+
+@media (max-width: 360px) {
+  .fm-toolbar,
+  .fm-toolbar-row3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fm-toolbar-row3 > .fm-toolbar-group:first-child,
+  .fm-toolbar-row3 > .fm-toolbar-group:last-child {
+    grid-column: auto;
+  }
+
+  .fm-export-buttons {
+    flex-direction: column;
+  }
+
+  .fm-tool-hint {
+    flex-basis: 100%;
+  }
+}
