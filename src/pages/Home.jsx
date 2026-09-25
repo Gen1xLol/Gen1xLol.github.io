@@ -548,6 +548,12 @@ function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
 
     let canvasCssW = 0
     let canvasCssH = 0
+    const circleData = new Float32Array(128 * 4)
+    const colorData = new Float32Array([
+      FILL_TOP.r / 255, FILL_TOP.g / 255, FILL_TOP.b / 255, 1,
+      FILL_MID.r / 255, FILL_MID.g / 255, FILL_MID.b / 255, 1,
+      FILL_BOTTOM.r / 255, FILL_BOTTOM.g / 255, FILL_BOTTOM.b / 255, 1,
+    ])
 
     function sizeCanvasTo(cssW, cssH) {
       if (cssW === canvasCssW && cssH === canvasCssH) return
@@ -560,6 +566,8 @@ function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
       textCanvas.width = Math.round(cssW * textDpr)
       textCanvas.height = Math.round(cssH * textDpr)
       gl.viewport(0, 0, canvas.width, canvas.height)
+      gl.bindTexture(gl.TEXTURE_2D, textTexture)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, textCanvas.width, textCanvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
     }
 
     sizeCanvasTo(size.width + svgMargin * 2, size.height + svgMargin * 2)
@@ -651,7 +659,6 @@ function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
         : layout.textBlock
       canvas.style.setProperty('--svg-margin', `-${frame.svgMargin}px`)
 
-      const circleData = new Float32Array(128 * 4)
       let circleCount = 0
       for (const c of frame.circles) {
         if (circleCount >= 128) break
@@ -688,11 +695,7 @@ function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
       gl.uniform1f(cloudUniforms.uBorderWidth, 1.5)
       gl.uniform1i(cloudUniforms.uCircleData, 0)
       gl.uniform1i(cloudUniforms.uCircleCount, circleCount)
-      gl.uniform4fv(cloudUniforms['uColors[0]'], new Float32Array([
-        FILL_TOP.r / 255, FILL_TOP.g / 255, FILL_TOP.b / 255, 1,
-        FILL_MID.r / 255, FILL_MID.g / 255, FILL_MID.b / 255, 1,
-        FILL_BOTTOM.r / 255, FILL_BOTTOM.g / 255, FILL_BOTTOM.b / 255, 1,
-      ]))
+      gl.uniform4fv(cloudUniforms['uColors[0]'], colorData)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
 
       textCtx.setTransform(textDpr, 0, 0, textDpr, 0, 0)
@@ -703,7 +706,7 @@ function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
       textCtx.restore()
       gl.bindTexture(gl.TEXTURE_2D, textTexture)
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas)
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas)
       gl.useProgram(textProgram)
       gl.activeTexture(gl.TEXTURE0)
       gl.bindTexture(gl.TEXTURE_2D, textTexture)
