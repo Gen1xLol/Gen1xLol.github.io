@@ -1,52 +1,89 @@
 .qa-page {
-  padding-bottom: 72px;
-  overflow-x: hidden;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 56px 28px 48px;
 }
+
 .qa-page h1 {
-  overflow-wrap: anywhere;
-  text-align: center;
+  font-size: 1.9rem;
+  font-weight: 700;
+  margin: 0 0 20px;
+  line-height: 1.3;
 }
+
+.qa-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 5px;
+  margin-bottom: 24px;
+  width: fit-content;
+  background: var(--glass-lo);
+  border: 1px solid var(--border-hair);
+  border-radius: 999px;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.qa-tabs button {
+  border: none;
+  background: transparent;
+  color: var(--soft);
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.qa-tabs button:hover {
+  color: var(--text);
+}
+
+.qa-tabs button.active {
+  color: #fff;
+  background: linear-gradient(180deg, var(--glass-hi), var(--accent));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 6px 16px rgba(128, 98, 168, 0.45);
+}
+
 .qa-container {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 14px;
 }
-.qa-tabs {
-  display: flex;
-  gap: 8px;
-  margin: 28px 0 36px;
-}
-.qa-tabs button {
-  background: transparent;
-  border: 1px solid var(--purple-dim);
-  color: var(--mid);
-  cursor: pointer;
-  font: inherit;
-  padding: 8px 14px;
-}
-.qa-tabs button.active,
-.qa-tabs button:hover {
-  background: var(--purple-dim);
-  color: var(--text);
-}
+
 .qa-item {
-  border-left: 2px solid var(--purple-dim);
-  padding-left: 20px;
+  background: #34264f;
+  border: 1px solid var(--border-hair);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 8px 18px rgba(3, 1, 12, 0.3);
 }
-.question {
-  font-weight: 500;
+
+.qa-item .question {
+  font-weight: 600;
+  color: var(--purple-lt);
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.qa-item .answer {
   color: var(--text);
-  font-size: 16px;
-  margin-bottom: 6px;
+  line-height: 1.6;
 }
-.answer {
-  color: var(--mid);
-  font-size: 15px;
-}
+
 .qa-image {
   display: block;
-  height: auto;
-  margin-bottom: 6px;
   max-width: 100%;
-  width: auto;
+  border-radius: var(--radius-sm);
+  margin-bottom: 10px;
+  border: 1px solid var(--border-hair);
+}
+
+@media (max-width: 640px) {
+  .qa-page {
+    padding: 40px 18px 36px;
+  }
 }

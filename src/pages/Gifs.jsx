@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, ExternalLink } from 'lucide-react'
+import { ArrowLeft, ArrowRight, ChevronDown, ExternalLink } from 'lucide-react'
 import '../gifs.css'
 
 const PAGE_SIZE = 100
@@ -392,7 +392,10 @@ export default function Gifs() {
         </PersistentDetails>
 
         <details className="gif-about-section">
-          <summary className="gif-about-summary">About this project</summary>
+          <summary className="gif-about-summary">
+            <span>About this project</span>
+            <ChevronDown className="gif-about-chevron" size={18} aria-hidden="true" />
+          </summary>
           <div className="gif-about-body">
 		    <p>
 			  <b>UPDATE:</b> I've found more collections and have been making copies of my original script to process them as well! -July 17th, 2026

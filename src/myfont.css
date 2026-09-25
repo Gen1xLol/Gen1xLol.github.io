@@ -1,10 +1,33 @@
-pre {
-  font-family: 'Fira Code', monospace;
-  font-size: 13px;
-  line-height: 1.5;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 12px;
-  overflow-x: auto;
+@font-face {
+  font-family: 'Gen1x Smooth';
+  src: url('/assets/gen1x-smooth.ttf') format('truetype');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Gen1x Rough';
+  src: url('/assets/gen1x-rough.ttf') format('truetype');
+  font-display: swap;
+}
+
+.section a {
+  color: var(--accent-2);
+  font-weight: 500;
+}
+
+.section pre {
+  color: var(--soft);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: rgba(28, 20, 47, 0.45);
+  border: 1px solid var(--border-hair);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+}
+
+.section img {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-hair);
+  margin: 10px 0;
 }

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import ExternalIcon from '../components/ExternalIcon.jsx'
 import MouseTooltip from '../components/MouseTooltip.jsx'
 import argentinaFlag from '../argentina.png'
@@ -22,49 +23,9 @@ function hexToRgb(hex) {
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
 }
 
-function drawCanvasTextPreview(canvas, block) {
-  const width = Math.max(1, Math.ceil(block.naturalWidth + 20))
-  const height = Math.max(1, Math.ceil(block.naturalHeight + 20))
-  canvas.width = width
-  canvas.height = height
-
-  const ctx = canvas.getContext('2d')
-  ctx.clearRect(0, 0, width, height)
-  ctx.font = `400 26px 'Gen1x Rough', cursive, sans-serif`
-  ctx.textBaseline = 'alphabetic'
-  ctx.fillStyle = '#000'
-
-  let cy = 10 + 26 * 0.82
-  for (const line of block.lines) {
-    const lineOffset = 10
-    for (const seg of line.segs) {
-      if (seg.isSpace) continue
-      for (const { ch, x } of seg.chars) {
-        ctx.fillText(ch, lineOffset + x, cy)
-      }
-    }
-    cy += block.lineHeight
-  }
-}
-
-function logCanvasImageToConsole(canvas) {
-  if (!canvas || typeof canvas.toDataURL !== 'function') return
-  try {
-    const dataUrl = canvas.toDataURL('image/png')
-    const style = `font-size:0; padding:${Math.max(1, Math.ceil(canvas.height / 2))}px ${Math.max(1, Math.ceil(canvas.width / 2))}px; background: url('${dataUrl}') no-repeat center / contain;`
-    console.log('%c ', style)
-  } catch (error) {
-    console.log('Failed to log canvas image', error)
-  }
-}
-
-function isGen1xRoughLoaded() {
-  return typeof document !== 'undefined' && document.fonts && document.fonts.check(`1em 'Gen1x Rough'`)
-}
-
-const FILL_TOP = hexToRgb('#4c2f8c')
-const FILL_MID = hexToRgb('#2f1c5e')
-const FILL_BOTTOM = hexToRgb('#170f33')
+const FILL_TOP = hexToRgb('#553c78')
+const FILL_MID = hexToRgb('#34264f')
+const FILL_BOTTOM = hexToRgb('#1c142f')
 
 function getComputedColor(varName, fallback) {
   if (typeof window === 'undefined') return fallback
@@ -87,8 +48,11 @@ function buildLobeLayout(width, height, prevLayout, forceRandom = false) {
   const seg7 = seg6 + straightH
   const perimeter = seg7 + arcLen
 
-  const rBase = Math.max(7, cap * 0.42)
-  const count = Math.max(14, Math.ceil(perimeter / (rBase * 0.62)))
+  const MAX_CIRCLES = 124
+  const rBaseFromCap = cap * 0.42
+  const rBaseMin = perimeter / (MAX_CIRCLES * 0.62)
+  const rBase = Math.max(7, rBaseFromCap, rBaseMin)
+  const count = Math.min(MAX_CIRCLES, Math.max(14, Math.ceil(perimeter / (rBase * 0.62))))
 
   const prevCircles = prevLayout && prevLayout.circles
   const prevCount = prevCircles ? prevCircles.length : 0
@@ -336,7 +300,6 @@ function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
   const measureCanvasRef = useRef(null)
   const measureElRef = useRef(null)
   const lastTextRef = useRef(null)
-  const loggedCanvasImageRef = useRef(false)
   const transitionRef = useRef(null)
   const shapeTransitionRef = useRef(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
@@ -400,11 +363,6 @@ function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
       }
 
       const block = measureTextBlock(mctx, cleanText, FONT_SIZE, maxTextWidth, measureElRef)
-      if (measureCanvasRef.current && !loggedCanvasImageRef.current && isGen1xRoughLoaded()) {
-        drawCanvasTextPreview(measureCanvasRef.current, block)
-        logCanvasImageToConsole(measureCanvasRef.current)
-        loggedCanvasImageRef.current = true
-      }
       const contentWidth = Math.ceil(block.naturalWidth) + PAD_X * 2
       const contentHeight = Math.ceil(block.naturalHeight) + PAD_Y * 2
 
@@ -478,13 +436,112 @@ function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
     if (!canvas || size.width === 0 || size.height === 0) return
 
     const rawDpr = Math.max(1, window.devicePixelRatio || 1)
-    const dpr = Math.min(rawDpr * 4, 8)
+    const dpr = Math.min(rawDpr, 4)
+    const textDpr = Math.min(4, Math.max(dpr, 2))
 
-    const ctx = canvas.getContext('2d')
+    const gl = canvas.getContext('webgl2', { alpha: true, antialias: true, premultipliedAlpha: true })
+    if (!gl) return
+    const textCanvas = document.createElement('canvas')
+    const textCtx = textCanvas.getContext('2d')
     const textColor = getComputedColor('--purple-lt', '#c4b5fd')
-
-    const maskCanvas = document.createElement('canvas')
-    const mctx = maskCanvas.getContext('2d')
+    const vertexSource = `#version 300 es
+      out vec2 vUv;
+      void main() {
+        vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
+        vUv = p;
+        gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+      }`
+    const cloudFragmentSource = `#version 300 es
+      precision highp float;
+      precision highp sampler2D;
+      in vec2 vUv;
+      out vec4 outColor;
+      uniform vec2 uSize;
+      uniform float uDpr;
+      uniform vec3 uBorderColor;
+      uniform vec4 uFrame;
+      uniform float uBorderWidth;
+      uniform sampler2D uCircleData;
+      uniform int uCircleCount;
+      uniform vec4 uColors[3];
+      float roundedRect(vec2 p, vec2 center, vec2 halfSize, float radius) {
+        vec2 q = abs(p - center) - halfSize + radius;
+        return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
+      }
+      void main() {
+        vec2 p = vec2(gl_FragCoord.x / uDpr, uSize.y - gl_FragCoord.y / uDpr);
+        vec2 origin = vec2(uFrame.z, uFrame.z);
+        float rw = max(0.0, uFrame.x - uFrame.w * 2.0);
+        float rh = max(0.0, uFrame.y - uFrame.w * 2.0);
+        float radius = min(rw, rh) * 0.5;
+        float dist = roundedRect(p, origin + vec2(uFrame.x * 0.5, uFrame.y * 0.5), vec2(rw, rh) * 0.5, radius);
+        for (int i = 0; i < 128; i++) {
+          if (i >= uCircleCount) break;
+          vec4 c = texelFetch(uCircleData, ivec2(i, 0), 0);
+          dist = min(dist, length(p - c.xy) - c.z);
+        }
+        float coverage = 1.0 - smoothstep(-fwidth(dist), fwidth(dist), dist);
+        if (coverage <= 0.0) discard;
+        float border = 1.0 - smoothstep(uBorderWidth - fwidth(dist), uBorderWidth + fwidth(dist), abs(dist));
+        float y = clamp(p.y / uSize.y, 0.0, 1.0);
+        vec3 color = y < 0.45
+          ? mix(uColors[0].rgb, uColors[1].rgb, y / 0.45)
+          : mix(uColors[1].rgb, uColors[2].rgb, (y - 0.45) / 0.55);
+        color = mix(color, uBorderColor, border);
+        outColor = vec4(color, coverage);
+      }`
+    const textFragmentSource = `#version 300 es
+      precision highp float;
+      in vec2 vUv;
+      out vec4 outColor;
+      uniform sampler2D uText;
+      void main() {
+        vec4 glyph = texture(uText, vec2(vUv.x, 1.0 - vUv.y));
+        if (glyph.a <= 0.0) discard;
+        outColor = glyph;
+      }`
+    function makeProgram(fragmentSource) {
+      const compile = (type, source) => {
+        const shader = gl.createShader(type)
+        gl.shaderSource(shader, source)
+        gl.compileShader(shader)
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader))
+        return shader
+      }
+      const program = gl.createProgram()
+      gl.attachShader(program, compile(gl.VERTEX_SHADER, vertexSource))
+      gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fragmentSource))
+      gl.linkProgram(program)
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program))
+      return program
+    }
+    let cloudProgram
+    let textProgram
+    try {
+      cloudProgram = makeProgram(cloudFragmentSource)
+      textProgram = makeProgram(textFragmentSource)
+    } catch (error) {
+      console.error('Thought bubble WebGL2 initialization failed', error)
+      return
+    }
+    const vao = gl.createVertexArray()
+    gl.bindVertexArray(vao)
+    const circleTexture = gl.createTexture()
+    gl.bindTexture(gl.TEXTURE_2D, circleTexture)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, 128, 1, 0, gl.RGBA, gl.FLOAT, null)
+    const textTexture = gl.createTexture()
+    gl.bindTexture(gl.TEXTURE_2D, textTexture)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    const cloudUniforms = Object.fromEntries(['uSize', 'uDpr', 'uBorderColor', 'uFrame', 'uBorderWidth', 'uCircleData', 'uCircleCount', 'uColors[0]'].map(name => [name, gl.getUniformLocation(cloudProgram, name)]))
+    const textUniforms = Object.fromEntries(['uText'].map(name => [name, gl.getUniformLocation(textProgram, name)]))
 
     const mobileQuery = window.matchMedia('(max-width: 520px)')
 
@@ -499,8 +556,9 @@ function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
       canvas.style.height = `${cssH}px`
       canvas.width = Math.round(cssW * dpr)
       canvas.height = Math.round(cssH * dpr)
-      maskCanvas.width = canvas.width
-      maskCanvas.height = canvas.height
+      textCanvas.width = Math.round(cssW * textDpr)
+      textCanvas.height = Math.round(cssH * textDpr)
+      gl.viewport(0, 0, canvas.width, canvas.height)
     }
 
     sizeCanvasTo(size.width + svgMargin * 2, size.height + svgMargin * 2)
@@ -592,60 +650,64 @@ function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
         : layout.textBlock
       canvas.style.setProperty('--svg-margin', `-${frame.svgMargin}px`)
 
-      const grad = ctx.createLinearGradient(0, 0, 0, cssH)
-      grad.addColorStop(0, `rgb(${FILL_TOP.r},${FILL_TOP.g},${FILL_TOP.b})`)
-      grad.addColorStop(0.45, `rgb(${FILL_MID.r},${FILL_MID.g},${FILL_MID.b})`)
-      grad.addColorStop(1, `rgb(${FILL_BOTTOM.r},${FILL_BOTTOM.g},${FILL_BOTTOM.b})`)
-
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      ctx.clearRect(0, 0, cssW, cssH)
-
-      mctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      mctx.clearRect(0, 0, cssW, cssH)
-      mctx.save()
-      mctx.translate(frame.svgMargin, frame.svgMargin)
-      mctx.fillStyle = '#fff'
-
-      const rw = Math.max(0, frame.width - frame.cornerInset * 2)
-      const rh = Math.max(0, frame.height - frame.cornerInset * 2)
-      mctx.beginPath()
-      mctx.roundRect(frame.cornerInset, frame.cornerInset, rw, rh, 9999)
-      mctx.fill()
-
-      mctx.beginPath()
+      const circleData = new Float32Array(128 * 4)
+      let circleCount = 0
       for (const c of frame.circles) {
+        if (circleCount >= 128) break
         const wobble = 1 + 0.09 * (Math.sin((t / c.duration) * Math.PI * 2 + c.phase) * 0.5 + 0.5)
         const radius = Math.max(c.coreR, c.r * wobble)
-        mctx.moveTo(c.x + radius, c.y)
-        mctx.arc(c.x, c.y, radius, 0, Math.PI * 2)
+        const i = circleCount++ * 4
+        circleData[i] = c.x + frame.svgMargin
+        circleData[i + 1] = c.y + frame.svgMargin
+        circleData[i + 2] = radius
       }
-      mctx.fill()
-
-      const visibleTailDots = mobileQuery.matches ? [] : frame.tailDots
-
-      mctx.beginPath()
-      for (const d of visibleTailDots) {
-        const maxScale = d.big ? 1.35 : 1.25
-        const pulse = 1 + (maxScale - 1) * (Math.sin((t / d.duration) * Math.PI * 2 + d.phase) * 0.5 + 0.5)
-        const radius = Math.max(d.coreR, d.r * pulse)
-        mctx.moveTo(d.x + radius, d.y)
-        mctx.arc(d.x, d.y, radius, 0, Math.PI * 2)
+      if (!mobileQuery.matches) {
+        for (const d of frame.tailDots) {
+          if (circleCount >= 128) break
+          const maxScale = d.big ? 1.35 : 1.25
+          const pulse = 1 + (maxScale - 1) * (Math.sin((t / d.duration) * Math.PI * 2 + d.phase) * 0.5 + 0.5)
+          const radius = Math.max(d.coreR, d.r * pulse)
+          const i = circleCount++ * 4
+          circleData[i] = d.x + frame.svgMargin
+          circleData[i + 1] = d.y + frame.svgMargin
+          circleData[i + 2] = radius
+        }
       }
-      mctx.fill()
 
-      mctx.restore()
+      gl.clearColor(0, 0, 0, 0)
+      gl.clear(gl.COLOR_BUFFER_BIT)
+      gl.useProgram(cloudProgram)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, circleTexture)
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 128, 1, gl.RGBA, gl.FLOAT, circleData)
+      gl.uniform2f(cloudUniforms.uSize, cssW, cssH)
+      gl.uniform1f(cloudUniforms.uDpr, dpr)
+      gl.uniform3f(cloudUniforms.uBorderColor, 0.77, 0.69, 0.99)
+      gl.uniform4f(cloudUniforms.uFrame, frame.width, frame.height, frame.svgMargin, frame.cornerInset)
+      gl.uniform1f(cloudUniforms.uBorderWidth, 1.5)
+      gl.uniform1i(cloudUniforms.uCircleData, 0)
+      gl.uniform1i(cloudUniforms.uCircleCount, circleCount)
+      gl.uniform4fv(cloudUniforms['uColors[0]'], new Float32Array([
+        FILL_TOP.r / 255, FILL_TOP.g / 255, FILL_TOP.b / 255, 1,
+        FILL_MID.r / 255, FILL_MID.g / 255, FILL_MID.b / 255, 1,
+        FILL_BOTTOM.r / 255, FILL_BOTTOM.g / 255, FILL_BOTTOM.b / 255, 1,
+      ]))
+      gl.drawArrays(gl.TRIANGLES, 0, 3)
 
-      ctx.save()
-      ctx.fillStyle = grad
-      ctx.fillRect(0, 0, cssW, cssH)
-      ctx.globalCompositeOperation = 'destination-in'
-      ctx.drawImage(maskCanvas, 0, 0, canvas.width, canvas.height, 0, 0, cssW, cssH)
-      ctx.restore()
-
-      ctx.save()
-      ctx.translate(frame.svgMargin, frame.svgMargin)
-      drawText(ctx, t, now, drawBlock, frame.width, frame.height, shape)
-      ctx.restore()
+      textCtx.setTransform(textDpr, 0, 0, textDpr, 0, 0)
+      textCtx.clearRect(0, 0, cssW, cssH)
+      textCtx.save()
+      textCtx.translate(frame.svgMargin, frame.svgMargin)
+      drawText(textCtx, t, now, drawBlock, frame.width, frame.height, shape)
+      textCtx.restore()
+      gl.bindTexture(gl.TEXTURE_2D, textTexture)
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas)
+      gl.useProgram(textProgram)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, textTexture)
+      gl.uniform1i(textUniforms.uText, 0)
+      gl.drawArrays(gl.TRIANGLES, 0, 3)
 
       rafRef.current = requestAnimationFrame(draw)
     }
@@ -740,8 +802,10 @@ function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
         const progress = Math.min(1, elapsed / TRANSITION_MS)
         const eased = 1 - Math.pow(1 - progress, 2)
 
-        drawBlock(transition.outBlock, eased * RISE_PX, 1 - eased)
-        drawBlock(block, (1 - eased) * -RISE_PX, eased)
+        const outgoingProgress = Math.min(1, eased * 2)
+        const incomingProgress = Math.max(0, (eased - 0.5) * 2)
+        drawBlock(transition.outBlock, outgoingProgress * RISE_PX, 1 - outgoingProgress)
+        drawBlock(block, (1 - incomingProgress) * -RISE_PX, incomingProgress)
 
         if (progress >= 1) transitionRef.current = null
       } else {
@@ -756,6 +820,11 @@ function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
     rafRef.current = requestAnimationFrame(draw)
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      gl.deleteProgram(cloudProgram)
+      gl.deleteProgram(textProgram)
+      gl.deleteTexture(circleTexture)
+      gl.deleteTexture(textTexture)
+      gl.deleteVertexArray(vao)
     }
   }, [size, svgMargin, cleanText, isShake])
 
@@ -800,9 +869,13 @@ function ThoughtBubble({ text, gap = margin, onClick, shapeSeed = 0 }) {
 export default function Home() {
   const [age, setAge] = useState('—')
   const [projects, setProjects] = useState([])
+  const [projectPage, setProjectPage] = useState(1)
   const [thoughtIndex, setThoughtIndex] = useState(() => Math.floor(Math.random() * THOUGHTS.length))
   const [bubbleShapeSeed, setBubbleShapeSeed] = useState(0)
   const spanishTipRef = useRef(null)
+  const projectsPerPage = 3
+  const projectPageCount = Math.max(1, Math.ceil((projects?.length || 0) / projectsPerPage))
+  const visibleProjects = projects?.slice((projectPage - 1) * projectsPerPage, projectPage * projectsPerPage) || []
   var thought = THOUGHTS[thoughtIndex]
   var rnd = Math.floor(Math.random() * 10000)
   thought = thought.replace(/\[rnd\]/g, rnd)
@@ -867,6 +940,7 @@ export default function Home() {
             <ThoughtBubble text={thought} onClick={cycleThought} shapeSeed={bubbleShapeSeed} />
           </div>
           <div className="fade-in" style={{ animationDelay: '1.4s' }}>
+            <br />
             <p className="prev">AKA: <span><a href="https://github.com/Gen1xLol" target="_blank" rel="noopener">Gen1xLol</a></span> / <span>YoSoyGena</span> / <span>G1nX</span> (very ocasionally)</p>
 			<div className="age-line">
               <span className="age-num" id="age-display">{age}</span>
@@ -877,6 +951,7 @@ export default function Home() {
           </div>
         </div>
 
+        <div className="home-card-stack home-about-stack">
         <div id="about" className="section fade-in" style={{ animationDelay: '1.7s' }}>
           <p className="section-title">about</p>
           <p>
@@ -920,7 +995,28 @@ export default function Home() {
             Also, special thanks to my friend doodles for the "imsogay.me" subdomain :D
           </p>
         </div>
+        </div>
 
+        <div id="links" className="section fade-in" style={{ animationDelay: '2.5s' }}>
+          <p className="section-title">links</p>
+          <div className="project-link-row">
+            <Link className="project-link-chip" to="/q&a">
+              Check out my totally real FAQ!
+            </Link>
+            <Link className="project-link-chip" to="/88x31">
+              Browse my 88x31 GIF collection!
+            </Link>
+            <a className="project-link-chip" href="https://gen1xlol.github.io/Jarona-TTS" target="_blank" rel="noopener">
+              <ExternalIcon />
+              Try Jarona TTS! <small style={{ color: 'var(--soft)', marginLeft: '2px' }}>(slight DELTARUNE spoilers...)</small>
+            </a>
+            <Link className="project-link-chip" to="/fontmaker">
+              Draw your own font in Draw-A-Font!
+            </Link>
+          </div>
+        </div>
+
+        <div className="home-card-stack home-project-stack">
         <div id="projects" className="section fade-in" style={{ animationDelay: '2.3s' }}>
           <p className="section-title">projects</p>
           <div className="projects-wrapper">
@@ -944,8 +1040,20 @@ export default function Home() {
               </a>
             </div>
 
+            {projects?.length > 0 && (
+              <nav className="project-pagination" aria-label="Project pages">
+                <button type="button" aria-label="Previous project page" disabled={projectPage === 1} onClick={() => setProjectPage(page => Math.max(1, page - 1))}>
+                  <ChevronLeft size={18} aria-hidden="true" />
+                </button>
+                <span aria-live="polite">{projectPage} / {projectPageCount}</span>
+                <button type="button" aria-label="Next project page" disabled={projectPage === projectPageCount} onClick={() => setProjectPage(page => Math.min(projectPageCount, page + 1))}>
+                  <ChevronRight size={18} aria-hidden="true" />
+                </button>
+              </nav>
+            )}
+
             <div className="ext-grid" id="ext-grid" style={projects === null ? { display: 'none' } : undefined}>
-              {projects && projects.map((p, i) => (
+              {visibleProjects.map((p, i) => (
                 <div className="ext-card" key={i}>
                   <img
                     src={p.image}
@@ -963,25 +1071,8 @@ export default function Home() {
 
           </div>
         </div>
-
-        <div className="section fade-in" style={{ animationDelay: '2.5s' }}>
-          <p className="section-title">links</p>
-          <div className="project-link-row">
-            <Link className="project-link-chip" to="/q&a">
-              Check out my totally real FAQ!
-            </Link>
-            <Link className="project-link-chip" to="/88x31">
-              Browse my 88x31 GIF collection!
-            </Link>
-            <a className="project-link-chip" href="https://gen1xlol.github.io/Jarona-TTS" target="_blank" rel="noopener">
-              <ExternalIcon />
-              Try Jarona TTS! <small style={{ color: 'var(--soft)', marginLeft: '2px' }}>(slight DELTARUNE spoilers...)</small>
-            </a>
-            <Link className="project-link-chip" to="/fontmaker">
-              Draw your own font in Draw-A-Font!
-            </Link>
-          </div>
         </div>
+
       </main>
 
       <footer className="fade-in" style={{ animationDelay: '2.6s', maxWidth: '680px', marginLeft: 'auto', marginRight: 'auto', paddingLeft: '28px', paddingRight: '28px' }}>

@@ -556,9 +556,6 @@ function smoothStroke(points, intensity) {
 function drawGlyph(ctx, char, guideFont, brushSize, strokes, guideOpacity = 16) {
   ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
 
-  ctx.fillStyle = '#0a0810'
-  ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
-
   const opacity = guideOpacity / 100
 
   if (opacity > 0) {
@@ -2045,9 +2042,13 @@ function FontPreview({ strokesRefs, brushSize, drawnChars, version, kerningTable
     ctx.clearRect(0, 0, drawWidth, drawHeight)
 
     if (drawnChars.size === 0) {
-      ctx.fillStyle = '#6b6080'
+      ctx.fillStyle = '#8a7fae'
       ctx.font = '13px Inter, sans-serif'
-      ctx.fillText('Draw a few letters and they will show up here, rendered as your font.', 0, PREVIEW_HEIGHT / 2)
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('Draw a few letters and they will show up here, rendered as your font.', drawWidth / 2, PREVIEW_HEIGHT / 2)
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'alphabetic'
       return
     }
 
@@ -2787,6 +2788,7 @@ export default function FontMaker() {
               value={brushSize}
               onChange={e => setBrushSize(Number(e.target.value))}
               className="fm-range"
+              style={{ '--fm-range-pct': `${((brushSize - 4) / (32 - 4)) * 100}%` }}
             />
             <span className="fm-range-value">{brushSize}px</span>
           </div>
@@ -2807,6 +2809,7 @@ export default function FontMaker() {
             <label className="fm-toolbar-label fm-steady-label">
               <input
                 type="checkbox"
+                className="fm-checkbox"
                 checked={steadyHand}
                 onChange={e => setSteadyHand(e.target.checked)}
               />
@@ -2821,6 +2824,7 @@ export default function FontMaker() {
                 onChange={e => setSmoothIntensity(Number(e.target.value))}
                 className="fm-range"
                 disabled={!steadyHand}
+                style={{ '--fm-range-pct': `${((smoothIntensity - 1) / (100 - 1)) * 100}%` }}
               />
               <span className="fm-range-value">{smoothIntensity}%</span>
             </div>
@@ -2866,6 +2870,7 @@ export default function FontMaker() {
                 value={guideOpacity}
                 onChange={e => setGuideOpacity(Number(e.target.value))}
                 className="fm-range"
+                style={{ '--fm-range-pct': `${(guideOpacity / 60) * 100}%` }}
               />
               <span className="fm-range-value">{guideOpacity}%</span>
             </div>
@@ -2879,6 +2884,7 @@ export default function FontMaker() {
                 value={kerningStrength}
                 onChange={e => setKerningStrength(Number(e.target.value))}
                 className="fm-range"
+                style={{ '--fm-range-pct': `${(kerningStrength / 200) * 100}%` }}
               />
               <div className="fm-kerning-value-row">
                 <span className="fm-range-value">{kerningStrength}%</span>
