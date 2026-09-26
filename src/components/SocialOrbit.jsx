@@ -132,7 +132,7 @@ export default function SocialOrbit() {
 
     function resize() {
       const rect = canvas.getBoundingClientRect()
-      const nextDpr = Math.max(1, window.devicePixelRatio || 1)
+      const nextDpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1) * 1.5)
       if (rect.width === width && rect.height === height && nextDpr === dpr) return
       width = rect.width
       height = rect.height
@@ -335,3 +335,4 @@ export default function SocialOrbit() {
     </div>
   )
 }
+
