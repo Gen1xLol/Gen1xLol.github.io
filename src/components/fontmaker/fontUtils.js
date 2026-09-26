@@ -1654,8 +1654,6 @@ function setupCanvasDPI(canvas, cssWidth, cssHeight) {
   const dpr = window.devicePixelRatio || 1
   canvas.width = Math.round(cssWidth * dpr)
   canvas.height = Math.round(cssHeight * dpr)
-  canvas.style.width = `${cssWidth}px`
-  canvas.style.height = `${cssHeight}px`
   const ctx = canvas.getContext('2d')
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   return ctx
