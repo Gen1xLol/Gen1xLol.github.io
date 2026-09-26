@@ -6,6 +6,7 @@
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   border-bottom: 1px solid var(--border-hair);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 12px 30px rgba(3, 1, 12, 0.35);
 }
 
 .fm-page-header-inner {
@@ -932,3 +933,5 @@
     flex-basis: 100%;
   }
 }
+
+
