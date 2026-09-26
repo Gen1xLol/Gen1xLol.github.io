@@ -18,7 +18,7 @@ header .header-inner:has(.site-name[href="#"]) {
   max-width: 1120px;
 }
 
-main:has(> .intro) {
+main:has(> .home-card-stack) {
   width: min(100%, 1120px);
   max-width: none;
   padding: 42px 28px 48px;
@@ -27,8 +27,12 @@ main:has(> .intro) {
   gap: 20px;
 }
 
-main:has(> .intro) > .intro {
+main:has(> .home-card-stack) > .intro {
   grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
+  align-items: center;
+  gap: 20px;
   margin: 0;
   padding: 28px 32px;
   border: 1px solid var(--border-hair);
@@ -37,7 +41,11 @@ main:has(> .intro) > .intro {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), var(--shadow-ambient);
 }
 
-main:has(> .intro) .section {
+.intro-copy {
+  min-width: 0;
+}
+
+main:has(> .home-card-stack) .section {
   min-width: 0;
   display: block;
   height: auto;
@@ -48,44 +56,44 @@ main:has(> .intro) .section {
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-main:has(> .intro) > .home-card-stack {
+main:has(> .home-card-stack) > .home-card-stack {
   display: flex;
   min-width: 0;
   flex-direction: column;
   gap: 20px;
 }
 
-main:has(> .intro) > .home-about-stack {
+main:has(> .home-card-stack) > .home-about-stack {
   grid-column: 1;
   grid-row: 2;
 }
 
-main:has(> .intro) > .home-project-stack {
+main:has(> .home-card-stack) > .home-project-stack {
   grid-column: 2;
   grid-row: 2;
   align-self: stretch;
 }
 
-main:has(> .intro) > .home-project-stack > #projects {
+main:has(> .home-card-stack) > .home-project-stack > #projects {
   flex: 1;
 }
 
-main:has(> .intro) > #links {
+main:has(> .home-card-stack) > #links {
   grid-column: 1 / -1;
   grid-row: 3;
 }
 
-main:has(> .intro) .section:hover {
+main:has(> .home-card-stack) .section:hover {
   transform: translateY(-3px);
   border-color: rgba(208, 192, 230, 0.3);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 22px 48px rgba(3, 1, 12, 0.58);
 }
 
-main:has(> .intro) #about p:not(.section-title) {
+main:has(> .home-card-stack) #about p:not(.section-title) {
   max-width: 920px;
 }
 
-main:has(> .intro) ~ footer {
+main:has(> .home-card-stack) ~ footer {
   max-width: 1120px !important;
 }
 
@@ -295,23 +303,24 @@ main:has(> .intro) ~ footer {
 }
 
 @media (max-width: 760px) {
-  main:has(> .intro) {
+  main:has(> .home-card-stack) {
     grid-template-columns: minmax(0, 1fr);
     padding: 30px 18px 36px;
   }
 
-  main:has(> .intro) > .home-about-stack,
-  main:has(> .intro) > .home-project-stack,
-  main:has(> .intro) > #links {
+  main:has(> .home-card-stack) > .home-about-stack,
+  main:has(> .home-card-stack) > .home-project-stack,
+  main:has(> .home-card-stack) > #links {
     grid-column: 1;
     grid-row: auto;
   }
 
-  main:has(> .intro) > .intro {
+  main:has(> .home-card-stack) > .intro {
+    grid-template-columns: minmax(0, 1fr);
     padding: 24px 20px;
   }
 
-  main:has(> .intro) ~ footer {
+  main:has(> .home-card-stack) ~ footer {
     margin-left: 18px !important;
     margin-right: 18px !important;
     padding-left: 0 !important;
@@ -320,7 +329,7 @@ main:has(> .intro) ~ footer {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  main:has(> .intro) .section {
+  main:has(> .home-card-stack) .section {
     transition: none;
   }
 }

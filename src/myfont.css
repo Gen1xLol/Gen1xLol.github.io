@@ -4,6 +4,67 @@
   font-display: swap;
 }
 
+.myfont-page {
+  display: block;
+  width: min(100%, 1120px);
+  max-width: none;
+  padding: 42px 28px 48px;
+}
+
+.myfont-page > .back-link {
+  margin-bottom: 28px;
+}
+
+.myfont-page > .intro {
+  margin: 0 0 20px;
+  padding: 28px 32px;
+  border: 1px solid var(--border-hair);
+  border-radius: 20px;
+  background: #34264f;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), var(--shadow-ambient);
+}
+
+.myfont-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "about samples"
+    "license stress";
+  align-items: stretch;
+  gap: 20px;
+}
+
+.myfont-sample-stack {
+  grid-area: samples;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.myfont-card-grid > .section,
+.myfont-sample-stack > .section {
+  min-width: 0;
+  height: auto;
+  margin: 0;
+  padding: 22px 24px 24px;
+}
+
+.myfont-section--about { grid-area: about; }
+.myfont-section--license { grid-area: license; }
+.myfont-section--stress { grid-area: stress; }
+
+.myfont-fill-card {
+  flex-grow: 1;
+}
+
+.myfont-page ~ footer {
+  max-width: 1120px !important;
+  padding-left: 28px !important;
+  padding-right: 28px !important;
+}
+
 @font-face {
   font-family: 'Gen1x Rough';
   src: url('/assets/gen1x-rough.ttf') format('truetype');
@@ -30,4 +91,26 @@
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-hair);
   margin: 10px 0;
+}
+
+@media (max-width: 760px) {
+  .myfont-page {
+    padding: 30px 18px 36px;
+  }
+
+  .myfont-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "about"
+      "license"
+      "samples"
+      "stress";
+  }
+
+  .myfont-page ~ footer {
+    margin-left: 18px !important;
+    margin-right: 18px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
 }

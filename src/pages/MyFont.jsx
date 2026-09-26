@@ -5,6 +5,7 @@ import '../myfont.css'
 const demoSections = [
   {
     title: 'what is this',
+    position: 'about',
     body: (
       <p>
         If you take a looksie over to the <Link to="/fontmaker">Draw-A-Font</Link> page, you'll see that it's a utility I designed
@@ -31,6 +32,7 @@ const demoSections = [
   },
   {
     title: 'sample glyphs (smooth)',
+    position: 'smooth',
     body: (
       <p style={{ fontFamily: 'Gen1x Smooth', fontSize: '30px' }}>
         The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.
@@ -44,6 +46,7 @@ const demoSections = [
   },
   {
     title: 'sample glyphs (rough)',
+    position: 'rough',
     body: (
       <p style={{ fontFamily: 'Gen1x Rough', fontSize: '30px' }}>
         The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.
@@ -57,6 +60,7 @@ const demoSections = [
   },
   {
     title: 'stress tests',
+    position: 'stress',
     body: (
       <p>
 	    (I recommend right-clicking these and opening them in a new tab.)
@@ -70,6 +74,7 @@ const demoSections = [
   },
   {
     title: 'license text',
+    position: 'license',
     body: (
       <div style={{ fontSize: '16px' }}>
         <pre style={{ fontSize: 'inherit', margin: 0 }}>{`Copyright (c) ${new Date().getFullYear()} Gen1x
@@ -96,10 +101,21 @@ SOFTWARE.`}</pre>
   },
 ]
 
+const sectionsByPosition = Object.fromEntries(demoSections.map(section => [section.position, section]))
+
+function FontSection({ section, className = '' }) {
+  return (
+    <div className={`section ${className}`}>
+      <p className="section-title">{section.title}</p>
+      {section.body}
+    </div>
+  )
+}
+
 export default function MyFont() {
   return (
     <>
-      <main>
+      <main className="myfont-page">
         <Link to="/" className="back-link"><ArrowLeft size={16} /> go back</Link>
         <div className="intro">
           <p className="intro-label">i present to you...</p>
@@ -109,12 +125,15 @@ export default function MyFont() {
           </div>
         </div>
 
-        {demoSections.map((section, i) => [
-          <div className="section" key={section.title}>
-            <p className="section-title">{section.title}</p>
-            {section.body}
+        <div className="myfont-card-grid">
+          <FontSection section={sectionsByPosition.about} className="myfont-section--about" />
+          <FontSection section={sectionsByPosition.license} className="myfont-section--license" />
+          <div className="myfont-sample-stack">
+            <FontSection section={sectionsByPosition.smooth} />
+            <FontSection section={sectionsByPosition.rough} className="myfont-fill-card" />
           </div>
-        ])}
+          <FontSection section={sectionsByPosition.stress} className="myfont-section--stress" />
+        </div>
       </main>
 
       <footer style={{ maxWidth: '680px', marginLeft: 'auto', marginRight: 'auto', paddingLeft: '28px', paddingRight: '28px' }}>
