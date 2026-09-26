@@ -22,6 +22,7 @@ export default function SocialOrbit() {
   const canvasRef = useRef(null)
   const anchorsRef = useRef([])
   const hoverRef = useRef({ index: -1, x: 0, y: 0 })
+  const touchRef = useRef(false)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -272,6 +273,7 @@ export default function SocialOrbit() {
       className="social-orbit"
       aria-label="my socials :)"
       onPointerMove={event => {
+        if (event.pointerType === 'touch') return
         const rect = event.currentTarget.getBoundingClientRect()
         const x = event.clientX - rect.left
         const y = event.clientY - rect.top
@@ -299,11 +301,17 @@ export default function SocialOrbit() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label={social.name}
+            onPointerDown={event => {
+              touchRef.current = event.pointerType === 'touch'
+              if (touchRef.current) hoverRef.current.index = -1
+            }}
             onClick={event => {
+              touchRef.current = false
               hoverRef.current.index = -1
               event.currentTarget.blur()
             }}
             onPointerEnter={event => {
+              if (event.pointerType === 'touch') return
               const orbitRect = event.currentTarget.parentElement.parentElement.getBoundingClientRect()
               const iconRect = event.currentTarget.getBoundingClientRect()
               hoverRef.current.index = index
@@ -311,6 +319,7 @@ export default function SocialOrbit() {
               hoverRef.current.originY = iconRect.top + iconRect.height / 2 - orbitRect.top
             }}
             onFocus={event => {
+              if (touchRef.current) return
               const orbitRect = event.currentTarget.parentElement.parentElement.getBoundingClientRect()
               const iconRect = event.currentTarget.getBoundingClientRect()
               hoverRef.current.index = index
