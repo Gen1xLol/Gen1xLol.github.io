@@ -49,6 +49,16 @@ body::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='2' seed='8'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+@media (max-width: 760px) {
+  body::before {
+    inset: 0 0 auto;
+    height: 100vh;
+    height: 100lvh;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+  }
+}
+
 a {
   color: var(--accent-2);
   text-decoration: none;
