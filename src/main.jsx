@@ -27,6 +27,77 @@ function setStoredManAccess(unlocked) {
   window.sessionStorage.setItem(MAN_KEY, unlocked ? 'true' : 'false')
 }
 
+function WheelScrollSmoother() {
+  useEffect(() => {
+    const scrollingElement = document.scrollingElement
+    if (!scrollingElement) return
+
+    let targetY = scrollingElement.scrollTop
+    let frameId = null
+    const originalScrollBehavior = scrollingElement.style.scrollBehavior
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+
+    function canScrollWithinTarget(target, deltaY) {
+      let node = target instanceof Element ? target : null
+      while (node && node !== document.body && node !== document.documentElement) {
+        const style = getComputedStyle(node)
+        const scrollable = /(auto|scroll|overlay)/.test(style.overflowY)
+        if (scrollable && node.scrollHeight > node.clientHeight) {
+          const atTop = node.scrollTop <= 0
+          const atBottom = node.scrollTop + node.clientHeight >= node.scrollHeight - 1
+          if ((deltaY < 0 && !atTop) || (deltaY > 0 && !atBottom)) return true
+        }
+        node = node.parentElement
+      }
+      return false
+    }
+
+    function animate() {
+      const currentY = scrollingElement.scrollTop
+      const nextY = currentY + (targetY - currentY) * 0.38
+      if (Math.abs(targetY - currentY) < 0.5) {
+        scrollingElement.scrollTop = targetY
+        frameId = null
+        scrollingElement.style.scrollBehavior = originalScrollBehavior
+        return
+      }
+      scrollingElement.scrollTop = nextY
+      frameId = requestAnimationFrame(animate)
+    }
+
+    function handleWheel(event) {
+      if (reduceMotion.matches || event.ctrlKey || event.metaKey || event.deltaX !== 0) return
+      if (canScrollWithinTarget(event.target, event.deltaY)) return
+
+      const scale = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? 16
+        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+          ? window.innerHeight
+          : 1
+      const delta = event.deltaY * scale
+      const maxY = Math.max(0, scrollingElement.scrollHeight - window.innerHeight)
+      const nextTarget = Math.min(maxY, Math.max(0, (frameId === null ? scrollingElement.scrollTop : targetY) + delta))
+      if (nextTarget === scrollingElement.scrollTop && frameId === null) return
+
+      event.preventDefault()
+      targetY = nextTarget
+      if (frameId === null) {
+        scrollingElement.style.scrollBehavior = 'auto'
+        frameId = requestAnimationFrame(animate)
+      }
+    }
+
+    window.addEventListener('wheel', handleWheel, { passive: false })
+    return () => {
+      window.removeEventListener('wheel', handleWheel)
+      if (frameId !== null) cancelAnimationFrame(frameId)
+      scrollingElement.style.scrollBehavior = originalScrollBehavior
+    }
+  }, [])
+
+  return null
+}
+
 function BackForwardRedirectHandler() {
   const lastHashRef = useRef(getHashPath())
   const pairRef = useRef({ pageA: null, pageB: null, lastWasA: null, backAndForthCount: 0 })
@@ -108,6 +179,7 @@ function BackForwardRedirectHandler() {
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <HashRouter>
+      <WheelScrollSmoother />
       <BackForwardRedirectHandler />
       <Routes>
         <Route path="/" element={<Home />} />
