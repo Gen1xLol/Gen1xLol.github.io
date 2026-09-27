@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
 import MouseTooltip from '../components/MouseTooltip.jsx'
@@ -9,14 +9,51 @@ import '../home.css'
 
 import { calcAge, ThoughtBubble } from '../components/ThoughtBubble.jsx'
 
+const EXT_GRID_MIN_COL = 150
+const EXT_GRID_GAP = 12
+const EXT_CARD_ASPECT = 9 / 16
+const EXT_CARD_COL_SPAN = 2
+
+function computeCardsPerPage(gridEl, aboutStackEl, projectsCardEl) {
+  if (!gridEl || !aboutStackEl || !projectsCardEl) return 1
+
+  const gridWidth = gridEl.clientWidth
+  if (gridWidth <= 0) return 1
+
+  const trackCount = Math.max(EXT_CARD_COL_SPAN, Math.floor((gridWidth + EXT_GRID_GAP) / (EXT_GRID_MIN_COL + EXT_GRID_GAP)))
+  const trackWidth = (gridWidth - (trackCount - 1) * EXT_GRID_GAP) / trackCount
+  const cardsPerRow = Math.max(1, Math.floor(trackCount / EXT_CARD_COL_SPAN))
+  const cardWidth = trackWidth * EXT_CARD_COL_SPAN + (EXT_CARD_COL_SPAN - 1) * EXT_GRID_GAP
+  const cardHeight = cardWidth * EXT_CARD_ASPECT
+
+  const sectionStyle = window.getComputedStyle(projectsCardEl)
+  const sectionPaddingBottom = parseFloat(sectionStyle.paddingBottom) || 0
+
+  const targetHeight = aboutStackEl.getBoundingClientRect().height
+  const sectionRect = projectsCardEl.getBoundingClientRect()
+  const gridTop = gridEl.getBoundingClientRect().top
+
+  const spaceAboveGrid = gridTop - sectionRect.top
+  const availableForGrid = targetHeight - spaceAboveGrid - sectionPaddingBottom
+
+  if (availableForGrid <= 0) return cardsPerRow
+
+  const maxRows = Math.max(1, Math.floor((availableForGrid + EXT_GRID_GAP) / (cardHeight + EXT_GRID_GAP)))
+
+  return Math.max(1, cardsPerRow * maxRows)
+}
+
 export default function Home() {
   const [age, setAge] = useState('—')
   const [projects, setProjects] = useState([])
   const [projectPage, setProjectPage] = useState(1)
   const [thoughtIndex, setThoughtIndex] = useState(() => Math.floor(Math.random() * THOUGHTS.length))
   const [bubbleShapeSeed, setBubbleShapeSeed] = useState(0)
+  const [projectsPerPage, setProjectsPerPage] = useState(3)
   const spanishTipRef = useRef(null)
-  const projectsPerPage = 3
+  const extGridRef = useRef(null)
+  const aboutStackRef = useRef(null)
+  const projectsCardRef = useRef(null)
   const projectPageCount = Math.max(1, Math.ceil((projects?.length || 0) / projectsPerPage))
   const visibleProjects = projects?.slice((projectPage - 1) * projectsPerPage, projectPage * projectsPerPage) || []
   var thought = THOUGHTS[thoughtIndex]
@@ -42,6 +79,37 @@ export default function Home() {
       .then(data => setProjects(data))
       .catch(() => setProjects(null))
   }, [])
+
+  useLayoutEffect(() => {
+    const gridEl = extGridRef.current
+    const aboutStackEl = aboutStackRef.current
+    const projectsCardEl = projectsCardRef.current
+    if (!gridEl || !aboutStackEl || !projectsCardEl) return
+
+    function recalculate() {
+      const next = computeCardsPerPage(gridEl, aboutStackEl, projectsCardEl)
+      setProjectsPerPage(prev => (prev === next ? prev : next))
+    }
+
+    recalculate()
+    const raf = requestAnimationFrame(recalculate)
+
+    const observer = new ResizeObserver(recalculate)
+    observer.observe(gridEl)
+    observer.observe(aboutStackEl)
+    observer.observe(projectsCardEl)
+    window.addEventListener('resize', recalculate)
+
+    return () => {
+      cancelAnimationFrame(raf)
+      observer.disconnect()
+      window.removeEventListener('resize', recalculate)
+    }
+  }, [projects, projectsPerPage])
+
+  useEffect(() => {
+    setProjectPage(prev => Math.min(prev, projectPageCount))
+  }, [projectPageCount])
 
   function handleSpanishTipClick() {
     alert('Translation:\nget me out of latin america')
@@ -97,7 +165,7 @@ export default function Home() {
           <SocialOrbit />
         </div>
 
-        <div className="home-card-stack home-about-stack">
+        <div className="home-card-stack home-about-stack" ref={aboutStackRef}>
         <div id="about" className="section fade-in" style={{ animationDelay: '1.7s' }}>
           <p className="section-title">about</p>
           <p>
@@ -163,7 +231,7 @@ export default function Home() {
         </div>
 
         <div className="home-card-stack home-project-stack">
-        <div id="projects" className="section fade-in" style={{ animationDelay: '2.3s' }}>
+        <div id="projects" className="section fade-in" style={{ animationDelay: '2.3s' }} ref={projectsCardRef}>
           <p className="section-title">projects</p>
           <div className="projects-wrapper">
 
@@ -198,7 +266,7 @@ export default function Home() {
               </nav>
             )}
 
-            <div className="ext-grid" id="ext-grid" style={projects === null ? { display: 'none' } : undefined}>
+            <div className="ext-grid" id="ext-grid" ref={extGridRef} style={projects === null ? { display: 'none' } : undefined}>
               {visibleProjects.map(p => (
                 <div className="ext-card" key={p.image || p.name}>
                   <img

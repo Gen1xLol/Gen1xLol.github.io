@@ -66,6 +66,7 @@ main:has(> .home-card-stack) > .home-card-stack {
 main:has(> .home-card-stack) > .home-about-stack {
   grid-column: 1;
   grid-row: 2;
+  align-self: start;
 }
 
 main:has(> .home-card-stack) > .home-project-stack {
