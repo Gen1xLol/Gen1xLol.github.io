@@ -1122,7 +1122,9 @@ function getKerningAdjustment(kerningTable, kerningStrength, l, r) {
   if (!kerningTable) return 0
   const raw = kerningTable[`${l}|${r}`]
   if (!raw) return 0
-  return Math.round(raw * (kerningStrength / 100))
+  const strength = kerningStrength / 100
+  const adjustment = raw * strength
+  return Math.round(adjustment < 0 ? adjustment * 0.7 : adjustment)
 }
 
 function pad4(n) {
