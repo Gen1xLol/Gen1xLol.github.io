@@ -662,15 +662,13 @@ function measureGlyphWidth(strokes, brushSize) {
   return glyphAdvanceWidth
 }
 
-const KERN_SAMPLE_STEPS = 64
+const KERN_SAMPLE_STEPS = 40
 const KERN_TARGET_GAP = UNITS_PER_EM * 0.045
 const KERN_MAX_ADJUST = UNITS_PER_EM * 0.14
 
 const KERN_ZONE_WEIGHT = 2.2
 const KERN_STRAIGHT_SLOPE_THRESHOLD = 0.06
 const KERN_ROUND_SPREAD_THRESHOLD = 0.1
-const KERN_PROFILE_BOTTOM = DESCENDER
-const KERN_PROFILE_TOP = ASCENDER
 
 function glyphSideProfiles(path, advanceWidth, char) {
   const box = path.getBoundingBox()
@@ -708,12 +706,15 @@ function glyphSideProfiles(path, advanceWidth, char) {
   if (current.length > 0) polygons.push(current)
   if (polygons.length === 0) return null
 
-  const ySpan = KERN_PROFILE_TOP - KERN_PROFILE_BOTTOM
   const left = new Array(KERN_SAMPLE_STEPS).fill(Infinity)
   const right = new Array(KERN_SAMPLE_STEPS).fill(-Infinity)
+  const yTop = box.y2
+  const yBottom = box.y1
+  const ySpan = yTop - yBottom
 
   for (let i = 0; i < KERN_SAMPLE_STEPS; i++) {
-    const y = KERN_PROFILE_BOTTOM + ((i + 0.5) / KERN_SAMPLE_STEPS) * ySpan
+    const t = (i + 0.5) / KERN_SAMPLE_STEPS
+    const y = yBottom + t * ySpan
     for (const poly of polygons) {
       for (let k = 0; k < poly.length; k++) {
         const a = poly[k]
@@ -727,34 +728,31 @@ function glyphSideProfiles(path, advanceWidth, char) {
     }
   }
 
+  const isLower = typeof char === 'string' && char === char.toLowerCase() && char !== char.toUpperCase()
   const zoneWeights = new Array(KERN_SAMPLE_STEPS)
+  const zoneLo = isLower ? yBottom + ySpan * 0.08 : yBottom + ySpan * 0.04
+  const zoneHi = isLower ? yBottom + ySpan * 0.62 : yBottom + ySpan * 0.96
   for (let i = 0; i < KERN_SAMPLE_STEPS; i++) {
-    const y = KERN_PROFILE_BOTTOM + ((i + 0.5) / KERN_SAMPLE_STEPS) * ySpan
-    zoneWeights[i] = (y >= -80 && y <= 560) ? KERN_ZONE_WEIGHT : 1
+    const t = (i + 0.5) / KERN_SAMPLE_STEPS
+    const y = yBottom + t * ySpan
+    zoneWeights[i] = (y >= zoneLo && y <= zoneHi) ? KERN_ZONE_WEIGHT : 1
   }
 
-  return classifyGlyphSides({ left, right, box, advanceWidth, zoneWeights, yBottom: box.y1, yTop: box.y2 })
+  return classifyGlyphSides({ left, right, box, advanceWidth, zoneWeights })
 }
 
 function classifySide(edgeValues) {
   const known = []
-  let firstIndex = -1
-  let lastIndex = -1
   for (let i = 0; i < edgeValues.length; i++) {
     const v = edgeValues[i]
-    if (v !== Infinity && v !== -Infinity) {
-      if (firstIndex < 0) firstIndex = i
-      lastIndex = i
-      known.push(v)
-    }
+    if (v !== Infinity && v !== -Infinity) known.push(v)
   }
-  if (known.length < 2) return { shape: 'flat', spread: 0, slope: 0, signedSlope: 0 }
+  if (known.length < 2) return { shape: 'flat', spread: 0, slope: 0 }
 
   const first = known[0]
   const last = known[known.length - 1]
-  const span = Math.max(1, lastIndex - firstIndex)
-  const signedSlope = (last - first) / (UNITS_PER_EM * span / KERN_SAMPLE_STEPS)
-  const slope = Math.abs(signedSlope)
+  const span = Math.max(1, known.length - 1)
+  const slope = Math.abs(last - first) / (UNITS_PER_EM * span / KERN_SAMPLE_STEPS)
 
   let minV = Infinity
   let maxV = -Infinity
@@ -774,7 +772,7 @@ function classifySide(edgeValues) {
   } else {
     shape = 'flat'
   }
-  return { shape, spread, slope, signedSlope }
+  return { shape, spread, slope }
 }
 
 function classifyGlyphSides(profile) {
@@ -808,38 +806,25 @@ function shapeTargetGap(leftShape, rightShape) {
   return KERN_TARGET_GAP * factor
 }
 
-function computeAutoKerningValue(leftProfile, rightProfile, handwritingStyle = null) {
+function computeAutoKerningValue(leftProfile, rightProfile) {
   if (!leftProfile || !rightProfile) return 0
 
   const gaps = []
   const weights = []
-  let leftRows = 0
-  let rightRows = 0
+  let minGap = Infinity
 
   for (let i = 0; i < KERN_SAMPLE_STEPS; i++) {
-    if (leftProfile.right[i] !== -Infinity) leftRows++
-    if (rightProfile.left[i] !== Infinity) rightRows++
     const leftEdge = leftProfile.right[i]
     const rightEdge = rightProfile.left[i]
     if (leftEdge === -Infinity || rightEdge === Infinity) continue
     const gap = (leftProfile.advanceWidth - leftEdge) + rightEdge
     gaps.push(gap)
     weights.push(leftProfile.zoneWeights[i] * rightProfile.zoneWeights[i])
+    if (gap < minGap) minGap = gap
   }
   if (gaps.length === 0) return 0
 
-  const ordered = gaps.map((gap, index) => ({ gap, weight: weights[index] })).sort((a, b) => a.gap - b.gap)
-  const totalWeight = ordered.reduce((sum, item) => sum + item.weight, 0)
-  let percentileWeight = totalWeight * 0.24
-  let percentileGap = ordered[ordered.length - 1].gap
-  for (const item of ordered) {
-    percentileWeight -= item.weight
-    if (percentileWeight <= 0) {
-      percentileGap = item.gap
-      break
-    }
-  }
-  const nearMinBand = percentileGap + UNITS_PER_EM * 0.035
+  const nearMinBand = minGap + UNITS_PER_EM * 0.02
   let bandSum = 0
   let bandWeight = 0
   for (let i = 0; i < gaps.length; i++) {
@@ -848,36 +833,11 @@ function computeAutoKerningValue(leftProfile, rightProfile, handwritingStyle = n
       bandWeight += weights[i]
     }
   }
-  const effectiveGap = bandWeight > 0 ? bandSum / bandWeight : percentileGap
+  const effectiveGap = bandWeight > 0 ? bandSum / bandWeight : minGap
 
-  const target = shapeTargetGap(leftProfile.rightShape.shape, rightProfile.leftShape.shape) *
-    (handwritingStyle?.gapScale ?? 1) *
-    (0.92 + 0.08 * Math.min(1, gaps.length / Math.max(1, Math.min(leftRows, rightRows))))
+  const target = shapeTargetGap(leftProfile.rightShape.shape, rightProfile.leftShape.shape)
   const adjust = target - effectiveGap
   return Math.max(-KERN_MAX_ADJUST, Math.min(KERN_MAX_ADJUST, Math.round(adjust)))
-}
-
-function inferHandwritingStyle(profiles) {
-  const values = Object.values(profiles).filter(Boolean)
-  if (values.length === 0) return { gapScale: 1 }
-  let widthTotal = 0
-  let slantTotal = 0
-  let slantCount = 0
-  for (const profile of values) {
-    widthTotal += profile.advanceWidth
-    const leftSide = profile.leftShape
-    const rightSide = profile.rightShape
-    const sideSlant = (leftSide.signedSlope || 0) + (rightSide.signedSlope || 0)
-    if (leftSide.slope > 0 || rightSide.slope > 0) {
-      slantTotal += sideSlant / Math.max(1, (leftSide.slope > 0 ? 1 : 0) + (rightSide.slope > 0 ? 1 : 0))
-      slantCount++
-    }
-  }
-  const averageWidth = widthTotal / values.length
-  const slant = slantCount ? slantTotal / slantCount : 0
-  const widthScale = Math.max(0.84, Math.min(1.12, 0.78 + (averageWidth / UNITS_PER_EM) * 0.25))
-  const slantScale = Math.max(0.94, Math.min(1.06, 1 - Math.abs(slant) * 0.035))
-  return { gapScale: widthScale * slantScale }
 }
 
 function computeAutoKerningTable(strokesRefs, brushSize) {
@@ -889,13 +849,12 @@ function computeAutoKerningTable(strokesRefs, brushSize) {
     profiles[char] = glyphSideProfiles(path, advanceWidth, char)
   }
 
-  const handwritingStyle = inferHandwritingStyle(profiles)
   const table = {}
   for (const l of ALL_CHARS) {
     if (!profiles[l]) continue
     for (const r of ALL_CHARS) {
       if (!profiles[r]) continue
-      const value = computeAutoKerningValue(profiles[l], profiles[r], handwritingStyle)
+      const value = computeAutoKerningValue(profiles[l], profiles[r])
       if (value !== 0) table[`${l}|${r}`] = value
     }
   }

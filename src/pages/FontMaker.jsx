@@ -264,7 +264,6 @@ export default function FontMaker() {
 
   const handleCommit = useCallback((char, strokes, saveOk = true) => {
     strokesRefs.current[char] = strokes
-    setResetVersion(v => v + 1)
     setDrawnChars(prev => {
       const isDrawn = strokes.length > 0
       const next = new Set(prev)
