@@ -662,9 +662,23 @@ function measureGlyphWidth(strokes, brushSize) {
   return glyphAdvanceWidth
 }
 
-const KERN_SAMPLE_STEPS = 40
+const KERN_SAMPLE_STEPS = 192
 const KERN_TARGET_GAP = UNITS_PER_EM * 0.045
 const KERN_MAX_ADJUST = UNITS_PER_EM * 0.14
+const KERN_PROFILE_Y_MIN = DESCENDER
+const KERN_PROFILE_Y_MAX = ASCENDER
+const BASELINE_PUNCTUATION = new Set(['.', ',', ':', ';', '!', '\u00a1', '?', '\u00bf'])
+const TOP_PUNCTUATION = new Set([
+  '\'', '"', '`', '\u00b4', '\u02b9', '\u02bc', '\u2018', '\u2019', '\u201a',
+  '\u201c', '\u201d', '\u201e', '\u2032', '\u2033', '\u2039', '\u203a', '\u00ab', '\u00bb',
+])
+
+function getKerningMarkAnchor(char, yTop, inkHeight) {
+  if (BASELINE_PUNCTUATION.has(char)) return 'bottom'
+  if (TOP_PUNCTUATION.has(char)) return 'top'
+  if (inkHeight <= UNITS_PER_EM * 0.3 && yTop >= ASCENDER - UNITS_PER_EM * 0.24) return 'top'
+  return null
+}
 
 const KERN_ZONE_WEIGHT = 2.2
 const KERN_STRAIGHT_SLOPE_THRESHOLD = 0.06
@@ -708,64 +722,125 @@ function glyphSideProfiles(path, advanceWidth, char) {
 
   const left = new Array(KERN_SAMPLE_STEPS).fill(Infinity)
   const right = new Array(KERN_SAMPLE_STEPS).fill(-Infinity)
-  const yTop = box.y2
-  const yBottom = box.y1
-  const ySpan = yTop - yBottom
+  const leftThickness = new Array(KERN_SAMPLE_STEPS).fill(0)
+  const rightThickness = new Array(KERN_SAMPLE_STEPS).fill(0)
+  const ySpan = KERN_PROFILE_Y_MAX - KERN_PROFILE_Y_MIN
+  let signedInkArea = 0
+  let outlinePerimeter = 0
+  let minX = Infinity
+  let maxX = -Infinity
+
+  for (const poly of polygons) {
+    signedInkArea += signedArea(poly)
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i]
+      const b = poly[(i + 1) % poly.length]
+      minX = Math.min(minX, a.x)
+      maxX = Math.max(maxX, a.x)
+      outlinePerimeter += Math.hypot(b.x - a.x, b.y - a.y)
+    }
+  }
 
   for (let i = 0; i < KERN_SAMPLE_STEPS; i++) {
-    const t = (i + 0.5) / KERN_SAMPLE_STEPS
-    const y = yBottom + t * ySpan
+    const y = KERN_PROFILE_Y_MIN + ((i + 0.5) / KERN_SAMPLE_STEPS) * ySpan
+    const crossings = []
     for (const poly of polygons) {
       for (let k = 0; k < poly.length; k++) {
         const a = poly[k]
         const b = poly[(k + 1) % poly.length]
         if ((a.y <= y && b.y > y) || (b.y <= y && a.y > y)) {
           const x = a.x + ((y - a.y) / (b.y - a.y)) * (b.x - a.x)
-          if (x < left[i]) left[i] = x
-          if (x > right[i]) right[i] = x
+          crossings.push({ x, direction: a.y <= y && b.y > y ? 1 : -1 })
         }
       }
     }
+    crossings.sort((a, b) => a.x - b.x)
+    const intervals = []
+    let winding = 0
+    let intervalStart = null
+    for (let k = 0; k < crossings.length;) {
+      const x = crossings[k].x
+      let direction = 0
+      let next = k
+      while (next < crossings.length && Math.abs(crossings[next].x - x) < 0.001) {
+        direction += crossings[next].direction
+        next++
+      }
+      const previousWinding = winding
+      winding += direction
+      if (previousWinding === 0 && winding !== 0) intervalStart = x
+      else if (previousWinding !== 0 && winding === 0 && intervalStart !== null) {
+        intervals.push([intervalStart, x])
+        intervalStart = null
+      }
+      k = next
+    }
+    if (intervals.length > 0) {
+      left[i] = intervals[0][0]
+      right[i] = intervals[intervals.length - 1][1]
+      leftThickness[i] = intervals[0][1] - intervals[0][0]
+      rightThickness[i] = intervals[intervals.length - 1][1] - intervals[intervals.length - 1][0]
+    }
   }
 
-  const isLower = typeof char === 'string' && char === char.toLowerCase() && char !== char.toUpperCase()
-  const zoneWeights = new Array(KERN_SAMPLE_STEPS)
-  const zoneLo = isLower ? yBottom + ySpan * 0.08 : yBottom + ySpan * 0.04
-  const zoneHi = isLower ? yBottom + ySpan * 0.62 : yBottom + ySpan * 0.96
+  const knownRows = []
   for (let i = 0; i < KERN_SAMPLE_STEPS; i++) {
-    const t = (i + 0.5) / KERN_SAMPLE_STEPS
-    const y = yBottom + t * ySpan
-    zoneWeights[i] = (y >= zoneLo && y <= zoneHi) ? KERN_ZONE_WEIGHT : 1
+    if (left[i] !== Infinity && right[i] !== -Infinity) knownRows.push(i)
   }
+  if (knownRows.length === 0) return null
 
-  return classifyGlyphSides({ left, right, box, advanceWidth, zoneWeights })
+  const yBottom = KERN_PROFILE_Y_MIN + (knownRows[0] / KERN_SAMPLE_STEPS) * ySpan
+  const yTop = KERN_PROFILE_Y_MIN + ((knownRows[knownRows.length - 1] + 1) / KERN_SAMPLE_STEPS) * ySpan
+  const visualWeight = outlinePerimeter > 0
+    ? Math.max(0, (2 * Math.abs(signedInkArea)) / outlinePerimeter)
+    : 0
+  const inkHeight = Math.max(0, box.y2 - box.y1)
+
+  return classifyGlyphSides({
+    char,
+    left,
+    right,
+    leftThickness,
+    rightThickness,
+    box,
+    advanceWidth,
+    yTop,
+    yBottom,
+    inkWidth: Math.max(0, maxX - minX),
+    inkHeight,
+    inkArea: Math.abs(signedInkArea),
+    outlinePerimeter,
+    visualWeight,
+    markAnchor: getKerningMarkAnchor(char, yTop, inkHeight),
+  })
 }
 
-function classifySide(edgeValues) {
+function classifySide(edgeValues, side) {
   const known = []
   for (let i = 0; i < edgeValues.length; i++) {
     const v = edgeValues[i]
-    if (v !== Infinity && v !== -Infinity) known.push(v)
+    if (v !== Infinity && v !== -Infinity) known.push({ index: i, value: v })
   }
   if (known.length < 2) return { shape: 'flat', spread: 0, slope: 0 }
 
   const first = known[0]
   const last = known[known.length - 1]
-  const span = Math.max(1, known.length - 1)
-  const slope = Math.abs(last - first) / (UNITS_PER_EM * span / KERN_SAMPLE_STEPS)
+  const rowSpan = Math.max(1, last.index - first.index)
+  const slope = Math.abs(last.value - first.value) / (UNITS_PER_EM * rowSpan / KERN_SAMPLE_STEPS)
 
   let minV = Infinity
   let maxV = -Infinity
-  for (const v of known) {
-    if (v < minV) minV = v
-    if (v > maxV) maxV = v
+  for (const { value } of known) {
+    if (value < minV) minV = value
+    if (value > maxV) maxV = value
   }
   const spread = (maxV - minV) / UNITS_PER_EM
 
   let shape
   if (spread > KERN_ROUND_SPREAD_THRESHOLD) {
-    const mid = known[Math.floor(known.length / 2)]
-    const bulgesOut = mid > (first + last) / 2
+    const mid = known[Math.floor(known.length / 2)].value
+    const averageEnds = (first.value + last.value) / 2
+    const bulgesOut = side === 'left' ? mid < averageEnds : mid > averageEnds
     shape = bulgesOut ? 'round' : 'concave'
   } else if (slope > KERN_STRAIGHT_SLOPE_THRESHOLD) {
     shape = 'diagonal'
@@ -776,8 +851,8 @@ function classifySide(edgeValues) {
 }
 
 function classifyGlyphSides(profile) {
-  profile.leftShape = classifySide(profile.left)
-  profile.rightShape = classifySide(profile.right)
+  profile.leftShape = classifySide(profile.left, 'left')
+  profile.rightShape = classifySide(profile.right, 'right')
   return profile
 }
 
@@ -800,47 +875,134 @@ const SHAPE_GAP_FACTOR = {
   'diagonal|concave': 0.82,
 }
 
-function shapeTargetGap(leftShape, rightShape) {
+function shapeTargetGap(leftShape, rightShape, targetGap = KERN_TARGET_GAP) {
   const key = `${leftShape}|${rightShape}`
   const factor = SHAPE_GAP_FACTOR[key] ?? 1
-  return KERN_TARGET_GAP * factor
+  return targetGap * factor
 }
 
-function computeAutoKerningValue(leftProfile, rightProfile) {
+function median(values) {
+  if (values.length === 0) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const middle = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle]
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value))
+}
+
+function computeKerningStyle(profiles) {
+  const valid = Object.values(profiles).filter(Boolean)
+  const weights = valid.map(profile => profile.visualWeight).filter(value => Number.isFinite(value) && value > 0)
+  const heights = valid.map(profile => profile.inkHeight).filter(value => Number.isFinite(value) && value > 0)
+  const medianWeight = median(weights) || KERN_TARGET_GAP / 1.55
+  const medianHeight = median(heights) || UNITS_PER_EM * 0.6
+  const sizeScale = clamp(medianHeight / (UNITS_PER_EM * 0.6), 0.8, 1.15)
+  const targetGap = clamp(medianWeight * 1.55, UNITS_PER_EM * 0.022, UNITS_PER_EM * 0.085) * sizeScale
+  return { medianWeight, targetGap }
+}
+
+function weightedQuantiles(samples, quantiles) {
+  if (samples.length === 0) return quantiles.map(() => 0)
+  const ordered = [...samples].sort((a, b) => a.gap - b.gap)
+  const totalWeight = ordered.reduce((total, sample) => total + sample.weight, 0)
+  const thresholds = quantiles.map(quantile => totalWeight * quantile)
+  const results = new Array(quantiles.length)
+  let cumulative = 0
+  let quantileIndex = 0
+  for (const sample of ordered) {
+    cumulative += sample.weight
+    while (quantileIndex < thresholds.length && cumulative >= thresholds[quantileIndex]) {
+      results[quantileIndex] = sample.gap
+      quantileIndex++
+    }
+  }
+  while (quantileIndex < quantiles.length) {
+    results[quantileIndex] = ordered[ordered.length - 1].gap
+    quantileIndex++
+  }
+  return results
+}
+
+function computeAutoKerningValue(leftProfile, rightProfile, style = null) {
   if (!leftProfile || !rightProfile) return 0
 
-  const gaps = []
-  const weights = []
-  let minGap = Infinity
+  const samples = []
+  let overlapStart = Infinity
+  let overlapEnd = -Infinity
 
   for (let i = 0; i < KERN_SAMPLE_STEPS; i++) {
     const leftEdge = leftProfile.right[i]
     const rightEdge = rightProfile.left[i]
     if (leftEdge === -Infinity || rightEdge === Infinity) continue
     const gap = (leftProfile.advanceWidth - leftEdge) + rightEdge
-    gaps.push(gap)
-    weights.push(leftProfile.zoneWeights[i] * rightProfile.zoneWeights[i])
-    if (gap < minGap) minGap = gap
+    const y = KERN_PROFILE_Y_MIN + ((i + 0.5) / KERN_SAMPLE_STEPS) * (KERN_PROFILE_Y_MAX - KERN_PROFILE_Y_MIN)
+    const edgeWeight = Math.sqrt(
+      Math.max(1, leftProfile.rightThickness[i]) *
+      Math.max(1, rightProfile.leftThickness[i])
+    )
+    overlapStart = Math.min(overlapStart, y)
+    overlapEnd = Math.max(overlapEnd, y)
+    samples.push({ y, gap, edgeWeight })
   }
-  if (gaps.length === 0) return 0
+  if (samples.length < 2) return 0
 
-  const nearMinBand = minGap + UNITS_PER_EM * 0.02
-  let bandSum = 0
-  let bandWeight = 0
-  for (let i = 0; i < gaps.length; i++) {
-    if (gaps[i] <= nearMinBand) {
-      bandSum += gaps[i] * weights[i]
-      bandWeight += weights[i]
+  const overlapHeight = Math.max(1, overlapEnd - overlapStart)
+  const weightedSamples = samples.map(sample => {
+    const position = (sample.y - overlapStart) / overlapHeight
+    const bodyEmphasis = 0.75 + 0.35 * Math.sin(Math.PI * position)
+    return { gap: sample.gap, edgeWeight: sample.edgeWeight, weight: bodyEmphasis }
+  })
+  const medianWeight = style?.medianWeight || KERN_TARGET_GAP / 1.55
+  const [gapQ05, gapQ10, gapQ25, gapQ50, gapQ75] = weightedQuantiles(weightedSamples, [0.05, 0.1, 0.25, 0.5, 0.75])
+  const spreadScale = clamp((gapQ75 - gapQ25) / Math.max(1, medianWeight * 2), 0, 1)
+  const lowerQuantileWeight = 0.35 + spreadScale * 0.25
+  let effectiveGap = gapQ10 * lowerQuantileWeight + gapQ25 * 0.3 + gapQ50 * (0.7 - lowerQuantileWeight)
+
+  const edgeThicknessSamples = weightedSamples.map(sample => ({ gap: sample.edgeWeight, weight: sample.weight }))
+  const [pairEdgeWeight] = weightedQuantiles(edgeThicknessSamples, [0.35])
+  const profileWeight = Math.sqrt(
+    Math.max(1, leftProfile.visualWeight || medianWeight) *
+    Math.max(1, rightProfile.visualWeight || medianWeight)
+  )
+  const pairWeight = Math.sqrt(profileWeight * Math.max(1, pairEdgeWeight))
+  const markProfiles = [leftProfile, rightProfile].filter(profile => profile.markAnchor)
+  let safetyGap = gapQ05
+  if (markProfiles.length > 0) {
+    const markSamples = samples.filter(sample => markProfiles.some(profile => {
+      const markZone = Math.max(profile.inkHeight * 0.12, medianWeight * 2)
+      return profile.markAnchor === 'bottom'
+        ? sample.y <= profile.yBottom + markZone
+        : sample.y >= profile.yTop - markZone
+    }))
+    if (markSamples.length > 0) {
+      const markStats = weightedQuantiles(markSamples.map(sample => ({ gap: sample.gap, weight: 1 })), [0.05, 0.1, 0.25, 0.5, 0.75])
+      const markSpreadScale = clamp((markStats[4] - markStats[2]) / Math.max(1, medianWeight * 2), 0, 1)
+      const markLowerWeight = 0.35 + markSpreadScale * 0.25
+      const markGap = markStats[1] * markLowerWeight + markStats[2] * 0.3 + markStats[3] * (0.7 - markLowerWeight)
+      effectiveGap = Math.min(effectiveGap, markGap)
+      safetyGap = Math.min(safetyGap, markStats[0])
     }
   }
-  const effectiveGap = bandWeight > 0 ? bandSum / bandWeight : minGap
 
-  const target = shapeTargetGap(leftProfile.rightShape.shape, rightProfile.leftShape.shape)
-  const adjust = target - effectiveGap
-  return Math.max(-KERN_MAX_ADJUST, Math.min(KERN_MAX_ADJUST, Math.round(adjust)))
+  const localWeightScale = clamp(pairEdgeWeight / medianWeight, 0.65, 1.4)
+  const baseTarget = style?.targetGap ?? KERN_TARGET_GAP
+  const target = shapeTargetGap(
+    leftProfile.rightShape.shape,
+    rightProfile.leftShape.shape,
+    baseTarget * (0.85 + 0.15 * localWeightScale)
+  )
+  let adjust = Math.max(-KERN_MAX_ADJUST, Math.min(KERN_MAX_ADJUST, target - effectiveGap))
+  if (markProfiles.length > 0 && adjust < 0) {
+    const minimumClearance = clamp(pairWeight * 0.2, UNITS_PER_EM * 0.008, UNITS_PER_EM * 0.018)
+    const maximumReduction = Math.max(0, (safetyGap - minimumClearance) / 2)
+    adjust = Math.max(adjust, -maximumReduction)
+  }
+  return Math.round(adjust)
 }
 
-function computeAutoKerningTable(strokesRefs, brushSize) {
+function computeGlyphProfiles(strokesRefs, brushSize) {
   const profiles = {}
   for (const char of ALL_CHARS) {
     const strokes = strokesRefs.current[char]
@@ -848,13 +1010,28 @@ function computeAutoKerningTable(strokesRefs, brushSize) {
     const { path, advanceWidth } = buildGlyphPathCached(strokes, brushSize, 50)
     profiles[char] = glyphSideProfiles(path, advanceWidth, char)
   }
+  return profiles
+}
+
+const glyphProfilesCache = new WeakMap()
+
+function getGlyphProfilesCached(strokesRefs, brushSize, version) {
+  const entry = glyphProfilesCache.get(strokesRefs)
+  if (entry && entry.brushSize === brushSize && entry.version === version) return entry.profiles
+  const profiles = computeGlyphProfiles(strokesRefs, brushSize)
+  glyphProfilesCache.set(strokesRefs, { brushSize, version, profiles })
+  return profiles
+}
+
+function computeAutoKerningTable(strokesRefs, brushSize, profiles = computeGlyphProfiles(strokesRefs, brushSize)) {
+  const style = computeKerningStyle(profiles)
 
   const table = {}
   for (const l of ALL_CHARS) {
     if (!profiles[l]) continue
     for (const r of ALL_CHARS) {
       if (!profiles[r]) continue
-      const value = computeAutoKerningValue(profiles[l], profiles[r])
+      const value = computeAutoKerningValue(profiles[l], profiles[r], style)
       if (value !== 0) table[`${l}|${r}`] = value
     }
   }
@@ -868,7 +1045,8 @@ function getKerningTableCached(strokesRefs, brushSize, version) {
   if (entry && entry.brushSize === brushSize && entry.version === version) {
     return entry.table
   }
-  const table = computeAutoKerningTable(strokesRefs, brushSize)
+  const profiles = getGlyphProfilesCached(strokesRefs, brushSize, version)
+  const table = computeAutoKerningTable(strokesRefs, brushSize, profiles)
   kerningTableCache.set(strokesRefs, { brushSize, version, table })
   return table
 }
@@ -876,18 +1054,13 @@ function getKerningTableCached(strokesRefs, brushSize, version) {
 const DEFAULT_SPACE_WIDTH = Math.round(UNITS_PER_EM * 0.32)
 const SPACE_WIDTH_FACTOR = 0.62
 
-function computeAutoSpaceWidth(strokesRefs, brushSize) {
-  let totalWidth = 0
-  let totalInset = 0
-  let count = 0
+function computeAutoSpaceWidth(strokesRefs, brushSize, profiles = computeGlyphProfiles(strokesRefs, brushSize)) {
+  const wordGlyphs = []
+  const fallbackGlyphs = []
 
   for (const char of ALL_CHARS) {
     if (char === ' ') continue
-    const strokes = strokesRefs.current[char]
-    if (!strokes || strokes.length === 0) continue
-
-    const { path, advanceWidth } = buildGlyphPathCached(strokes, brushSize, 50)
-    const profile = glyphSideProfiles(path, advanceWidth, char)
+    const profile = profiles[char]
     if (!profile) continue
 
     let rightMost = -Infinity
@@ -898,21 +1071,38 @@ function computeAutoSpaceWidth(strokesRefs, brushSize) {
     }
     if (rightMost === -Infinity || leftMost === Infinity) continue
 
-    const rightBearing = advanceWidth - rightMost
-    const leftBearing = leftMost
-    totalInset += rightBearing + leftBearing
-    totalWidth += advanceWidth
-    count++
+    const metrics = {
+      inkWidth: profile.inkWidth,
+      inkHeight: profile.inkHeight,
+      visualWeight: profile.visualWeight,
+      leftBearing: leftMost,
+      rightBearing: profile.advanceWidth - rightMost,
+    }
+    if (!profile.markAnchor) fallbackGlyphs.push(metrics)
+    if (!profile.markAnchor && (char.toLowerCase() !== char.toUpperCase() || /^[0-9]$/.test(char))) {
+      wordGlyphs.push(metrics)
+    }
   }
 
-  if (count === 0) return DEFAULT_SPACE_WIDTH
+  const samples = wordGlyphs.length > 0 ? wordGlyphs : fallbackGlyphs
+  if (samples.length === 0) return DEFAULT_SPACE_WIDTH
 
-  const avgWidth = totalWidth / count
-  const avgInset = totalInset / count
-  const inkWidth = Math.max(avgWidth - avgInset, avgWidth * 0.3)
-  const spaceWidth = inkWidth * SPACE_WIDTH_FACTOR + avgInset
+  const medianInkWidth = median(samples.map(sample => sample.inkWidth))
+  const medianInkHeight = median(samples.map(sample => sample.inkHeight))
+  const medianVisualWeight = median(samples.map(sample => sample.visualWeight).filter(value => value > 0))
+  const leftBearingStats = weightedQuantiles(samples.map(sample => ({ gap: sample.leftBearing, weight: 1 })), [0.25, 0.5])
+  const rightBearingStats = weightedQuantiles(samples.map(sample => ({ gap: sample.rightBearing, weight: 1 })), [0.25, 0.5])
+  const typicalPairBearing = 0.7 * (leftBearingStats[1] + rightBearingStats[1]) +
+    0.3 * (leftBearingStats[0] + rightBearingStats[0])
+  const sizeScale = clamp(medianInkHeight / (UNITS_PER_EM * 0.6), 0.8, 1.15)
+  const desiredVisibleGap = (medianInkWidth * SPACE_WIDTH_FACTOR + medianVisualWeight * 0.15) * sizeScale
+  const empiricalSpaceWidth = desiredVisibleGap - typicalPairBearing
+  const sampleConfidence = wordGlyphs.length > 0
+    ? clamp(wordGlyphs.length / 6, 0.15, 1)
+    : clamp(fallbackGlyphs.length / 10, 0.1, 0.55)
+  const spaceWidth = DEFAULT_SPACE_WIDTH + (empiricalSpaceWidth - DEFAULT_SPACE_WIDTH) * sampleConfidence
 
-  return Math.round(Math.min(Math.max(spaceWidth, UNITS_PER_EM * 0.15), UNITS_PER_EM * 0.55))
+  return Math.round(clamp(spaceWidth, UNITS_PER_EM * 0.08, UNITS_PER_EM * 0.42))
 }
 
 const spaceWidthCache = new WeakMap()
@@ -922,7 +1112,8 @@ function getAutoSpaceWidthCached(strokesRefs, brushSize, version) {
   if (entry && entry.brushSize === brushSize && entry.version === version) {
     return entry.width
   }
-  const width = computeAutoSpaceWidth(strokesRefs, brushSize)
+  const profiles = getGlyphProfilesCached(strokesRefs, brushSize, version)
+  const width = computeAutoSpaceWidth(strokesRefs, brushSize, profiles)
   spaceWidthCache.set(strokesRefs, { brushSize, version, width })
   return width
 }
@@ -931,8 +1122,7 @@ function getKerningAdjustment(kerningTable, kerningStrength, l, r) {
   if (!kerningTable) return 0
   const raw = kerningTable[`${l}|${r}`]
   if (!raw) return 0
-  const effectiveStrength = kerningStrength === 0 ? 100 : kerningStrength
-  return Math.round(raw * (effectiveStrength / 100))
+  return Math.round(raw * (kerningStrength / 100))
 }
 
 function pad4(n) {

@@ -76,6 +76,7 @@ export default function FontMaker() {
   const [steadyHand, setSteadyHand] = useState(loadSteadyHand)
   const [smoothIntensity, setSmoothIntensity] = useState(loadSmoothIntensity)
   const [resetVersion, setResetVersion] = useState(0)
+  const [kerningVersion, setKerningVersion] = useState(0)
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState(null)
   const [bootLoading, setBootLoading] = useState(true)
@@ -114,6 +115,7 @@ export default function FontMaker() {
       if (cancelled) return
       setDrawnChars(drawn)
       setResetVersion(v => v + 1)
+      setKerningVersion(v => v + 1)
       setBootLoading(false)
     }
 
@@ -264,6 +266,7 @@ export default function FontMaker() {
 
   const handleCommit = useCallback((char, strokes, saveOk = true) => {
     strokesRefs.current[char] = strokes
+    setKerningVersion(v => v + 1)
     setDrawnChars(prev => {
       const isDrawn = strokes.length > 0
       const next = new Set(prev)
@@ -287,6 +290,7 @@ export default function FontMaker() {
     }
     setDrawnChars(new Set())
     setResetVersion(v => v + 1)
+    setKerningVersion(v => v + 1)
   }
 
   const handleAddSymbol = () => {
@@ -314,6 +318,7 @@ export default function FontMaker() {
     }
     setNewSymbolInput('')
     setResetVersion(v => v + 1)
+    setKerningVersion(v => v + 1)
     setIndex(ALL_CHARS.indexOf(fresh[0]))
   }
 
@@ -337,6 +342,7 @@ export default function FontMaker() {
       return Math.min(i, ALL_CHARS.length - 1)
     })
     setResetVersion(v => v + 1)
+    setKerningVersion(v => v + 1)
   }
 
   const handleGuideFontUpload = async (e) => {
@@ -408,6 +414,7 @@ export default function FontMaker() {
         return next
       })
       setResetVersion(v => v + 1)
+      setKerningVersion(v => v + 1)
       if (failedChars.length > 0) {
         setImportError(
           `Imported ${importedChars.length - failedChars.length} of ${importedChars.length} glyphs, but ` +
@@ -504,6 +511,7 @@ export default function FontMaker() {
       setSaveErrorChars(new Set(failedChars))
       setIndex(0)
       setResetVersion(value => value + 1)
+      setKerningVersion(value => value + 1)
       if (failedChars.length > 0) setProjectError(`Loaded the project, but ${failedChars.length} glyph${failedChars.length === 1 ? '' : 's'} could not be saved in this browser.`)
     } catch (err) {
       setProjectError(err.message || 'Could not load this FontMaker project.')
@@ -552,13 +560,13 @@ export default function FontMaker() {
   }, [index])
 
   const kerningTable = useMemo(
-    () => getKerningTableCached(strokesRefs, brushSize, resetVersion),
-    [strokesRefs, brushSize, resetVersion, drawnChars]
+    () => getKerningTableCached(strokesRefs, brushSize, kerningVersion),
+    [strokesRefs, brushSize, kerningVersion, drawnChars]
   )
 
   const spaceWidth = useMemo(
-    () => getAutoSpaceWidthCached(strokesRefs, brushSize, resetVersion),
-    [strokesRefs, brushSize, resetVersion, drawnChars]
+    () => getAutoSpaceWidthCached(strokesRefs, brushSize, kerningVersion),
+    [strokesRefs, brushSize, kerningVersion, drawnChars]
   )
 
   const handleResetKerning = () => setKerningStrength(DEFAULT_KERNING_STRENGTH)
