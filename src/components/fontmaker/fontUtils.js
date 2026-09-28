@@ -1212,24 +1212,28 @@ function makeKernTableBuffer(kerningPairs) {
   return buf
 }
 
-function makeGposTableBuffer(kerningPairs) {
-  const entries = Object.keys(kerningPairs)
-    .map(key => {
-      const [l, r] = key.split(',').map(Number)
-      return { left: l, right: r, value: kerningPairs[key] }
-    })
-    .filter(e => Number.isFinite(e.left) && Number.isFinite(e.right) && e.value !== 0)
-    .sort((a, b) => (a.left - b.left) || (a.right - b.right))
+const GPOS_MAX_SUBTABLE_SIZE = 0xFFFF
+const GPOS_SUBTABLE_BASE_SIZE = 14
 
-  if (entries.length === 0) return null
-
-  const byLeft = new Map()
-  for (const e of entries) {
-    if (!byLeft.has(e.left)) byLeft.set(e.left, [])
-    byLeft.get(e.left).push({ right: e.right, value: e.value })
+function chunkLeftGlyphsForGpos(leftGlyphs, byLeft) {
+  const chunks = []
+  let current = []
+  let size = GPOS_SUBTABLE_BASE_SIZE
+  for (const left of leftGlyphs) {
+    const cost = 2 + 2 + byLeft.get(left).length * 4 + 2
+    if (current.length > 0 && size + cost > GPOS_MAX_SUBTABLE_SIZE) {
+      chunks.push(current)
+      current = []
+      size = GPOS_SUBTABLE_BASE_SIZE
+    }
+    current.push(left)
+    size += cost
   }
-  const leftGlyphs = Array.from(byLeft.keys()).sort((a, b) => a - b)
+  if (current.length > 0) chunks.push(current)
+  return chunks
+}
 
+function encodeGposPairSubtable(leftGlyphs, byLeft) {
   const VALUE_FORMAT1 = 0x0004
   const VALUE_FORMAT2 = 0x0000
 
@@ -1288,18 +1292,57 @@ function makeGposTableBuffer(kerningPairs) {
     subtableBytes.set(new Uint8Array(coverageBuf), coverageOffset)
   }
 
-  const lookupHeaderSize = 2 + 2 + 2 + 2
-  const lookupSize = lookupHeaderSize + subtableSize
+  return subtableBuf
+}
+
+function makeGposTableBuffer(kerningPairs) {
+  const entries = Object.keys(kerningPairs)
+    .map(key => {
+      const [l, r] = key.split(',').map(Number)
+      return { left: l, right: r, value: kerningPairs[key] }
+    })
+    .filter(e => Number.isFinite(e.left) && Number.isFinite(e.right) && e.value !== 0)
+    .sort((a, b) => (a.left - b.left) || (a.right - b.right))
+
+  if (entries.length === 0) return null
+
+  const byLeft = new Map()
+  for (const e of entries) {
+    if (!byLeft.has(e.left)) byLeft.set(e.left, [])
+    byLeft.get(e.left).push({ right: e.right, value: e.value })
+  }
+  const leftGlyphs = Array.from(byLeft.keys()).sort((a, b) => a - b)
+
+  const subtableBufs = chunkLeftGlyphsForGpos(leftGlyphs, byLeft)
+    .map(chunk => encodeGposPairSubtable(chunk, byLeft))
+
+  const useExtension = subtableBufs.length > 1
+  const extensionEntrySize = 8
+  const lookupHeaderSize = 2 + 2 + 2 + subtableBufs.length * 2
+  let payloadCursor = lookupHeaderSize + (useExtension ? subtableBufs.length * extensionEntrySize : 0)
+  const payloadOffsets = subtableBufs.map(buf => {
+    const start = payloadCursor
+    payloadCursor += buf.byteLength
+    return start
+  })
+  const lookupSize = payloadCursor
   const lookupBuf = new ArrayBuffer(lookupSize)
   const lookupBytes = new Uint8Array(lookupBuf)
   {
     const view = new DataView(lookupBuf)
-    let o = 0
-    view.setUint16(o, 2); o += 2
-    view.setUint16(o, 0); o += 2
-    view.setUint16(o, 1); o += 2
-    view.setUint16(o, lookupHeaderSize); o += 2
-    lookupBytes.set(subtableBytes, lookupHeaderSize)
+    view.setUint16(0, useExtension ? 9 : 2)
+    view.setUint16(2, 0)
+    view.setUint16(4, subtableBufs.length)
+    subtableBufs.forEach((buf, i) => {
+      const entryOffset = useExtension ? lookupHeaderSize + i * extensionEntrySize : payloadOffsets[i]
+      view.setUint16(6 + i * 2, entryOffset)
+      if (useExtension) {
+        view.setUint16(entryOffset, 1)
+        view.setUint16(entryOffset + 2, 2)
+        view.setUint32(entryOffset + 4, payloadOffsets[i] - entryOffset)
+      }
+      lookupBytes.set(new Uint8Array(buf), payloadOffsets[i])
+    })
   }
 
   const lookupListHeaderSize = 2 + 2 * 1
@@ -2019,6 +2062,10 @@ export {
   KERN_MAX_PAIRS_PER_SUBTABLE,
   encodeKernSubtable,
   makeKernTableBuffer,
+  GPOS_MAX_SUBTABLE_SIZE,
+  GPOS_SUBTABLE_BASE_SIZE,
+  chunkLeftGlyphsForGpos,
+  encodeGposPairSubtable,
   makeGposTableBuffer,
   injectKernTable,
   convertCffToTrueType,
@@ -2040,4 +2087,3 @@ export {
   measureGuideGlyphBounds,
   centerStrokes,
 }
-
