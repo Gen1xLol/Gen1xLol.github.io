@@ -16,7 +16,7 @@ const demoSections = [
         The rough variant is a bit more true to my handwriting (and it was made with pure, unadulterated, <i>greasy</i> mouse movement power), but the smooth variant is a bit more readable.
         I recommend using the smooth variant for body text, and MAYBE the rough variant for headings and titles.
         <br /><br />
-        A real weakness I've noticed is that it's very thin, so it sucks when used in small sizes. I recommend using it at around 20px or larger, and if you want to use it smaller than that... tough luck, brochacho.
+        A real weakness I've noticed is that it's thick but not too much, so it may suck when used in small sizes. I recommend using it at around 16px or larger, and if you want to use it smaller than that... tough luck, brochacho.
         <br /><br />
         The font is free to use for personal and commercial projects, but I would appreciate it if you gave me credit for it (I don't expect anyone to use it anyway lol.)
         <br /><br />
