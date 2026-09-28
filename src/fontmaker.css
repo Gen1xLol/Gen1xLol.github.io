@@ -269,6 +269,7 @@
     rgba(28, 20, 47, 0.65) var(--fm-range-pct),
     rgba(28, 20, 47, 0.65) 100%
   );
+  background-clip: padding-box;
   border: 1px solid var(--border-hair);
   cursor: pointer;
 }
@@ -294,7 +295,7 @@
   height: 6px;
   border: none;
   border-radius: 999px 0 0 999px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  background: transparent;
 }
 
 .fm-range::-webkit-slider-thumb {
