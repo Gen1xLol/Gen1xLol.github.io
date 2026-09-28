@@ -55,14 +55,14 @@ export function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialS
 
   const currentStrokes = () => historyRef.current[historyIndexRef.current]
 
-  const pushHistory = (strokes) => {
+  const pushHistory = useCallback((strokes) => {
     const trimmed = historyRef.current.slice(0, historyIndexRef.current + 1)
     trimmed.push(strokes)
     historyRef.current = trimmed
     historyIndexRef.current = trimmed.length - 1
     saveStroke(char, strokes).then(result => onCommit(char, strokes, result.ok))
     redraw()
-  }
+  }, [char, onCommit, redraw])
 
   const undo = useCallback(() => {
     if (historyIndexRef.current <= 0) return
@@ -84,7 +84,7 @@ export function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialS
     const guideBounds = guideOpacity > 0 ? measureGuideGlyphBounds(char, guideFont) : null
     const centered = centerStrokes(currentStrokes(), guideBounds)
     if (centered !== currentStrokes()) pushHistory(centered)
-  }, [char, guideFont, guideOpacity])
+  }, [char, guideFont, guideOpacity, pushHistory])
 
   useEffect(() => {
     const handleKeyDown = (e) => {
