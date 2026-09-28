@@ -1584,7 +1584,7 @@ function convertCffToTrueType(arrayBuffer) {
     : ttfBuffer
 }
 
-const WOFF2_WASM_URL = 'https://unpkg.com/fonteditor-core@2.6.3/woff2/woff2.wasm'
+const WOFF2_WASM_URL = 'woff2.wasm'
 let woff2InitPromise = null
 
 function ensureWoff2Ready() {
@@ -1992,6 +1992,7 @@ export {
   GUIDE_FONT_STORAGE_KEY,
   GUIDE_FONTS,
   loadGuideFont,
+  loadCustomGuideFont,
 
   BRUSH_SIZE_STORAGE_KEY,
   FONT_NAME_STORAGE_KEY,
@@ -2072,6 +2073,7 @@ export {
 
   WOFF2_WASM_URL,
   ensureWoff2Ready,
+  convertTrueTypeToWoff2,
 
   measureGlyphVerticalExtent,
   computeTextMetrics,
@@ -2086,4 +2088,5 @@ export {
   snapAngle,
   measureGuideGlyphBounds,
   centerStrokes,
+  importGlyphsFromFontFile,
 }
