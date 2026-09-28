@@ -77,6 +77,7 @@ export default function FontMaker() {
   const [smoothIntensity, setSmoothIntensity] = useState(loadSmoothIntensity)
   const [resetVersion, setResetVersion] = useState(0)
   const [kerningVersion, setKerningVersion] = useState(0)
+  const [previewVersion, setPreviewVersion] = useState(0)
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState(null)
   const [bootLoading, setBootLoading] = useState(true)
@@ -280,6 +281,11 @@ export default function FontMaker() {
       else next.add(char)
       return next
     })
+  }, [])
+
+  const handleSetBrushSize = useCallback(size => {
+    setBrushSize(size)
+    setPreviewVersion(v => v + 1)
   }, [])
 
   const handleClearAll = () => {
@@ -561,17 +567,19 @@ export default function FontMaker() {
 
   const kerningTable = useMemo(
     () => getKerningTableCached(strokesRefs, brushSize, kerningVersion),
-    [strokesRefs, brushSize, kerningVersion, drawnChars]
+    [strokesRefs, kerningVersion, drawnChars]
   )
 
   const spaceWidth = useMemo(
     () => getAutoSpaceWidthCached(strokesRefs, brushSize, kerningVersion),
-    [strokesRefs, brushSize, kerningVersion, drawnChars]
+    [strokesRefs, kerningVersion, drawnChars]
   )
 
   const handleResetKerning = () => setKerningStrength(DEFAULT_KERNING_STRENGTH)
 
   const buildFont = () => {
+    const exportKerningTable = getKerningTableCached(strokesRefs, brushSize, kerningVersion)
+    const exportSpaceWidth = getAutoSpaceWidthCached(strokesRefs, brushSize, kerningVersion)
     const glyphs = []
     glyphs.push(new Glyph({
       name: '.notdef',
@@ -583,7 +591,7 @@ export default function FontMaker() {
     const spaceGlyph = new Glyph({
       name: 'space',
       unicode: 32,
-      advanceWidth: spaceWidth,
+      advanceWidth: exportSpaceWidth,
       path: new Path(),
     })
     glyphs.push(spaceGlyph)
@@ -666,7 +674,7 @@ export default function FontMaker() {
       for (const r of ALL_CHARS) {
         const ri = glyphIndexByChar[r]
         if (!ri) continue
-        const value = getKerningAdjustment(kerningTable, kerningStrength, l, r)
+        const value = getKerningAdjustment(exportKerningTable, kerningStrength, l, r)
         if (value !== 0) kerningPairs[`${li},${ri}`] = value
       }
     }
@@ -1010,13 +1018,14 @@ export default function FontMaker() {
           resetKey={resetVersion}
           duplicatableGlyphs={duplicatableGlyphs}
           onDuplicatePickerChange={setDuplicatePickerOpen}
+          onSetBrushSize={handleSetBrushSize}
         />
 
         <FontPreview
           strokesRefs={strokesRefs}
           brushSize={brushSize}
           drawnChars={drawnChars}
-          version={resetVersion}
+          version={previewVersion}
           kerningTable={kerningTable}
           kerningStrength={kerningStrength}
           spaceWidth={spaceWidth}
@@ -1026,7 +1035,7 @@ export default function FontMaker() {
           strokesRefs={strokesRefs}
           brushSize={brushSize}
           drawnChars={drawnChars}
-          version={resetVersion}
+          version={previewVersion}
           kerningTable={kerningTable}
           kerningStrength={kerningStrength}
           spaceWidth={spaceWidth}

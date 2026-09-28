@@ -34,7 +34,7 @@ function DuplicateGlyphOption({ glyph, brushSize, onSelect, isCurrent }) {
   )
 }
 
-export function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialStrokes, onCommit, steadyHand, smoothIntensity, resetKey, duplicatableGlyphs, onDuplicatePickerChange }) {
+export function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialStrokes, onCommit, steadyHand, smoothIntensity, resetKey, duplicatableGlyphs, onDuplicatePickerChange, onSetBrushSize }) {
   const canvasRef = useRef(null)
   const drawingRef = useRef(false)
   const currentStrokeRef = useRef([])
@@ -44,6 +44,7 @@ export function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialS
   const [tool, setTool] = useState('brush')
   const [shiftHeld, setShiftHeld] = useState(false)
   const [duplicatePickerOpen, setDuplicatePickerOpen] = useState(false)
+  const [allStrokesBrushSize, setAllStrokesBrushSize] = useState(brushSize)
   const [duplicateOverlayTop, setDuplicateOverlayTop] = useState(0)
   const duplicateDialogRef = useRef(null)
   const toolRef = useRef(tool)
@@ -68,6 +69,10 @@ export function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialS
   useEffect(() => {
     redraw()
   }, [guideFont, brushSize, guideOpacity])
+
+  useEffect(() => {
+    setAllStrokesBrushSize(brushSize)
+  }, [brushSize])
 
   useEffect(() => {
     const handleDpiChange = () => redraw()
@@ -258,6 +263,13 @@ export function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialS
     closeDuplicatePicker()
   }
 
+  const handleSetAllBrushSizes = () => {
+    const size = Number(allStrokesBrushSize)
+    if (!Number.isFinite(size) || size < 4 || size > 32) return
+    if (!window.confirm(`Set the brush size to ${size}px for all strokes in every drawing?`)) return
+    onSetBrushSize(size)
+  }
+
   const openDuplicatePicker = () => {
     const header = document.querySelector('.fm-page-header')
     setDuplicateOverlayTop(header?.getBoundingClientRect().bottom || 0)
@@ -336,6 +348,27 @@ export function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialS
           disabled={duplicatableGlyphs.length === 0}
           type="button"
         ><Copy size={15} /> Duplicate from glyph</button>
+        <div className="fm-all-brush-size">
+          <span>Set all to</span>
+          <input
+            className="fm-all-brush-size-input"
+            type="number"
+            min="4"
+            max="32"
+            step="1"
+            value={allStrokesBrushSize}
+            onChange={e => setAllStrokesBrushSize(e.target.value)}
+            aria-label="Brush size for all strokes"
+          />
+          <span>px</span>
+          <button
+            className="fm-all-brush-size-apply"
+            onClick={handleSetAllBrushSizes}
+            disabled={!Number.isFinite(Number(allStrokesBrushSize)) || Number(allStrokesBrushSize) < 4 || Number(allStrokesBrushSize) > 32}
+            type="button"
+            title="Set this brush size for every stroke in every drawing"
+          >Apply</button>
+        </div>
       </div>
       {duplicatePickerOpen && (
         createPortal(
@@ -429,7 +462,7 @@ export function FontPreview({ strokesRefs, brushSize, drawnChars, version, kerni
     }
 
     const raf = window.requestAnimationFrame(() => {
-      const metrics = computeTextMetrics(strokesRefs, brushSize, PREVIEW_FONT_SIZE)
+      const metrics = computeTextMetrics(strokesRefs, brushSize, PREVIEW_FONT_SIZE, PREVIEW_SAMPLE)
       ctx.save()
       ctx.translate(4, metrics.baselineOffset)
       const layout = renderTextToCanvas(ctx, PREVIEW_SAMPLE, strokesRefs, brushSize, PREVIEW_FONT_SIZE, {
@@ -499,7 +532,7 @@ export function TypeBox({ strokesRefs, brushSize, drawnChars, version, kerningTa
     ctx.clearRect(0, 0, drawWidth, drawHeight)
 
     const raf = window.requestAnimationFrame(() => {
-      const metrics = computeTextMetrics(strokesRefs, brushSize, typeFontSize)
+      const metrics = computeTextMetrics(strokesRefs, brushSize, typeFontSize, text || '')
       ctx.save()
       ctx.translate(10, metrics.baselineOffset)
       const layout = renderTextToCanvas(ctx, text || '', strokesRefs, brushSize, typeFontSize, {

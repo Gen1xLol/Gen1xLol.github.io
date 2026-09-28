@@ -646,8 +646,61 @@
 
 .fm-duplicate-row {
   display: flex;
+  align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
   margin-top: 12px;
+}
+
+.fm-all-brush-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding-left: 10px;
+  border: 1px solid var(--border-hair);
+  border-radius: var(--radius-sm);
+  background: rgba(28, 20, 47, 0.45);
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.fm-all-brush-size-input {
+  width: 38px;
+  padding: 6px 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: center;
+}
+
+.fm-all-brush-size:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.fm-all-brush-size-apply {
+  align-self: stretch;
+  margin-left: 3px;
+  padding: 0 11px;
+  border: 0;
+  border-left: 1px solid var(--border-hair);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.fm-all-brush-size-apply:hover:not(:disabled) {
+  background: rgba(128, 98, 168, 0.3);
+}
+
+.fm-all-brush-size-apply:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .fm-duplicate-btn,

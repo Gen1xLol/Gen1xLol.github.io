@@ -1564,12 +1564,13 @@ function measureGlyphVerticalExtent(strokes, brushSize) {
   return { minY: box.y1, maxY: box.y2 }
 }
 
-function computeTextMetrics(strokesRefs, brushSize, fontSize) {
+function computeTextMetrics(strokesRefs, brushSize, fontSize, text = null) {
   const fontScale = fontSize / UNITS_PER_EM
   let minY = Infinity
   let maxY = -Infinity
   let found = false
-  for (const char of ALL_CHARS) {
+  const chars = text === null ? ALL_CHARS : new Set(text)
+  for (const char of chars) {
     const extent = measureGlyphVerticalExtent(strokesRefs.current[char], brushSize)
     if (!extent) continue
     found = true
