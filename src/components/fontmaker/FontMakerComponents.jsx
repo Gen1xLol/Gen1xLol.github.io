@@ -1,12 +1,40 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { Font, Glyph, Path, parse as parseFont } from 'opentype.js'
 import { createFont as createFontEditorFont, woff2 } from 'fonteditor-core'
 import { saveStroke, clearStroke } from '../../glyphDB.js'
-import { ArrowLeft, ArrowRight, Undo2, Redo2, X, Space, TriangleAlert, Plus, PenLine, Locate, Minus, Upload, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Undo2, Redo2, X, Space, TriangleAlert, Plus, PenLine, Locate, Minus, Upload, Trash2, Copy } from 'lucide-react'
 import { CANVAS_SIZE, UNITS_PER_EM, ASCENDER, DESCENDER, SCALE, BASE_CHAR_GROUPS, CUSTOM_SYMBOLS_STORAGE_KEY, loadCustomSymbols, saveCustomSymbols, rebuildCharGroups, GUIDE_FONT_STORAGE_KEY, GUIDE_FONTS, loadGuideFont, BRUSH_SIZE_STORAGE_KEY, FONT_NAME_STORAGE_KEY, STEADY_HAND_STORAGE_KEY, SMOOTH_INTENSITY_STORAGE_KEY, loadBrushSize, loadFontName, loadSteadyHand, loadSmoothIntensity, KERNING_STRENGTH_STORAGE_KEY, DEFAULT_KERNING_STRENGTH, loadKerningStrength, GUIDE_OPACITY_STORAGE_KEY, loadGuideOpacity, CUSTOM_GUIDE_FONT_NAME, TRACE_SUPERSAMPLE, TRACE_SIZE, rasterizeStrokesToMask, traceMaskToPolygons, sqDistToSegment, douglasPeucker, simplifyPolygon, signedArea, pointInPolygon, glyphPathCache, buildGlyphPathCached, seedGlyphPathCache, computeGlyphContours, pathFromContours, buildGlyphPath, resampleStroke, smoothStroke, drawGlyph, pathToCanvasPolygons, measureGlyphWidth, KERN_SAMPLE_STEPS, KERN_TARGET_GAP, KERN_MAX_ADJUST, KERN_ZONE_WEIGHT, KERN_STRAIGHT_SLOPE_THRESHOLD, KERN_ROUND_SPREAD_THRESHOLD, glyphSideProfiles, classifySide, classifyGlyphSides, SHAPE_GAP_FACTOR, shapeTargetGap, computeAutoKerningValue, computeAutoKerningTable, kerningTableCache, getKerningTableCached, DEFAULT_SPACE_WIDTH, SPACE_WIDTH_FACTOR, computeAutoSpaceWidth, spaceWidthCache, getAutoSpaceWidthCached, getKerningAdjustment, pad4, computeTableChecksum, KERN_SUBTABLE_HEADER_SIZE, KERN_MAX_PAIRS_PER_SUBTABLE, encodeKernSubtable, makeKernTableBuffer, makeGposTableBuffer, injectKernTable, convertCffToTrueType, WOFF2_WASM_URL, ensureWoff2Ready, measureGlyphVerticalExtent, computeTextMetrics, layoutTextToLines, renderTextToCanvas, isOutlineStroke, flattenQuadTo, flattenCubicTo, fontPathToCanvasContours, setupCanvasDPI, snapAngle, measureGuideGlyphBounds, centerStrokes } from './fontUtils.js' // dear fucking god this is a long import line
 
-export function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialStrokes, onCommit, steadyHand, smoothIntensity, resetKey }) {
+function DuplicateGlyphOption({ glyph, brushSize, onSelect, isCurrent }) {
+  const canvasRef = useRef(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = setupCanvasDPI(canvas, 72, 72)
+    const scale = 72 / CANVAS_SIZE
+    const dpr = window.devicePixelRatio || 1
+    ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0)
+    drawGlyph(ctx, glyph.char, 'sans-serif', brushSize, glyph.strokes, 0)
+  }, [glyph, brushSize])
+
+  return (
+    <button
+      className="fm-duplicate-option"
+      onClick={onSelect}
+      type="button"
+      disabled={isCurrent}
+      aria-label={isCurrent ? `${glyph.char === ' ' ? 'Space' : glyph.char} is already selected` : `Copy ${glyph.char === ' ' ? 'space' : glyph.char}`}
+    >
+      <canvas ref={canvasRef} className="fm-duplicate-option-canvas" />
+      <span>{glyph.char === ' ' ? 'space' : glyph.char}</span>
+    </button>
+  )
+}
+
+export function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialStrokes, onCommit, steadyHand, smoothIntensity, resetKey, duplicatableGlyphs, onDuplicatePickerChange }) {
   const canvasRef = useRef(null)
   const drawingRef = useRef(false)
   const currentStrokeRef = useRef([])
@@ -15,6 +43,9 @@ export function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialS
   const historyIndexRef = useRef(0)
   const [tool, setTool] = useState('brush')
   const [shiftHeld, setShiftHeld] = useState(false)
+  const [duplicatePickerOpen, setDuplicatePickerOpen] = useState(false)
+  const [duplicateOverlayTop, setDuplicateOverlayTop] = useState(0)
+  const duplicateDialogRef = useRef(null)
   const toolRef = useRef(tool)
   const shiftHeldRef = useRef(false)
   toolRef.current = tool
@@ -218,6 +249,45 @@ export function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialS
     clearStroke(char)
   }
 
+  const handleDuplicate = (glyph) => {
+    const copiedStrokes = glyph.strokes.map(stroke => Array.isArray(stroke)
+      ? stroke.map(point => ({ ...point }))
+      : { ...stroke, contours: stroke.contours.map(contour => contour.map(point => ({ ...point }))) }
+    )
+    pushHistory(copiedStrokes)
+    closeDuplicatePicker()
+  }
+
+  const openDuplicatePicker = () => {
+    const header = document.querySelector('.fm-page-header')
+    setDuplicateOverlayTop(header?.getBoundingClientRect().bottom || 0)
+    setDuplicatePickerOpen(true)
+    onDuplicatePickerChange(true)
+  }
+
+  const closeDuplicatePicker = () => {
+    setDuplicatePickerOpen(false)
+    onDuplicatePickerChange(false)
+  }
+
+  useEffect(() => {
+    if (!duplicatePickerOpen) return
+    duplicateDialogRef.current?.focus()
+    const updateOverlayTop = () => {
+      const header = document.querySelector('.fm-page-header')
+      setDuplicateOverlayTop(header?.getBoundingClientRect().bottom || 0)
+    }
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') closeDuplicatePicker()
+    }
+    window.addEventListener('resize', updateOverlayTop)
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('resize', updateOverlayTop)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [duplicatePickerOpen, onDuplicatePickerChange])
+
   const canUndo = historyIndexRef.current > 0
   const canRedo = historyIndexRef.current < historyRef.current.length - 1
 
@@ -259,6 +329,52 @@ export function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialS
         onTouchMove={handleMove}
         onTouchEnd={handleEnd}
       />
+      <div className="fm-duplicate-row">
+        <button
+          className="fm-duplicate-btn"
+          onClick={openDuplicatePicker}
+          disabled={duplicatableGlyphs.length === 0}
+          type="button"
+        ><Copy size={15} /> Duplicate from glyph</button>
+      </div>
+      {duplicatePickerOpen && (
+        createPortal(
+          <div
+            className="fm-duplicate-overlay"
+            style={{ '--fm-duplicate-top': `${duplicateOverlayTop}px` }}
+            onMouseDown={e => e.target === e.currentTarget && closeDuplicatePicker()}
+          >
+            <section
+              className="fm-duplicate-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="fm-duplicate-title"
+              tabIndex={-1}
+              ref={duplicateDialogRef}
+            >
+              <div className="fm-duplicate-header">
+                <div>
+                  <h2 id="fm-duplicate-title">Duplicate a drawn glyph</h2>
+                  <p>Choose a design to replace "{char === ' ' ? 'space' : char}".</p>
+                </div>
+                <button className="fm-duplicate-close" onClick={closeDuplicatePicker} type="button" aria-label="Close glyph picker"><X size={18} /></button>
+              </div>
+              <div className="fm-duplicate-grid">
+                {duplicatableGlyphs.map(glyph => (
+                  <DuplicateGlyphOption
+                    key={glyph.char}
+                    glyph={glyph}
+                    brushSize={brushSize}
+                    isCurrent={glyph.char === char}
+                    onSelect={() => handleDuplicate(glyph)}
+                  />
+                ))}
+              </div>
+            </section>
+          </div>,
+          document.body
+        )
+      )}
     </div>
   )
 }
@@ -306,7 +422,7 @@ export function FontPreview({ strokesRefs, brushSize, drawnChars, version, kerni
       ctx.font = '13px Inter, sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText('Draw a few letters and they will show up here, rendered as your font.', drawWidth / 2, PREVIEW_HEIGHT / 2)
+      ctx.fillText('Draw a few letters and they will show up here, rendered as your font.', drawWidth / 2, drawHeight / 2)
       ctx.textAlign = 'left'
       ctx.textBaseline = 'alphabetic'
       return

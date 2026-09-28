@@ -2,12 +2,67 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Font, Glyph, Path, parse as parseFont } from 'opentype.js'
 import { createFont as createFontEditorFont, woff2 } from 'fonteditor-core'
-import { ArrowLeft, ArrowRight, Undo2, Redo2, X, Space, TriangleAlert, Plus, PenLine, Locate, Minus, Upload, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Undo2, Redo2, X, Space, TriangleAlert, Plus, PenLine, Locate, Minus, Upload, Trash2, Download } from 'lucide-react'
 import { loadStroke, saveStroke, clearStroke } from '../glyphDB.js'
 import { GlyphEditor, FontPreview, TypeBox } from '../components/fontmaker/FontMakerComponents.jsx'
 import { CHAR_GROUPS, ALL_CHARS } from '../components/fontmaker/fontUtils.js'
 import { CANVAS_SIZE, UNITS_PER_EM, ASCENDER, DESCENDER, SCALE, BASE_CHAR_GROUPS, CUSTOM_SYMBOLS_STORAGE_KEY, loadCustomSymbols, saveCustomSymbols, rebuildCharGroups, GUIDE_FONT_STORAGE_KEY, GUIDE_FONTS, loadGuideFont, BRUSH_SIZE_STORAGE_KEY, FONT_NAME_STORAGE_KEY, STEADY_HAND_STORAGE_KEY, SMOOTH_INTENSITY_STORAGE_KEY, loadBrushSize, loadFontName, loadSteadyHand, loadSmoothIntensity, KERNING_STRENGTH_STORAGE_KEY, DEFAULT_KERNING_STRENGTH, loadKerningStrength, GUIDE_OPACITY_STORAGE_KEY, loadGuideOpacity, CUSTOM_GUIDE_FONT_NAME, TRACE_SUPERSAMPLE, TRACE_SIZE, rasterizeStrokesToMask, traceMaskToPolygons, sqDistToSegment, douglasPeucker, simplifyPolygon, signedArea, pointInPolygon, glyphPathCache, buildGlyphPathCached, seedGlyphPathCache, computeGlyphContours, pathFromContours, buildGlyphPath, resampleStroke, smoothStroke, drawGlyph, pathToCanvasPolygons, measureGlyphWidth, KERN_SAMPLE_STEPS, KERN_TARGET_GAP, KERN_MAX_ADJUST, KERN_ZONE_WEIGHT, KERN_STRAIGHT_SLOPE_THRESHOLD, KERN_ROUND_SPREAD_THRESHOLD, glyphSideProfiles, classifySide, classifyGlyphSides, SHAPE_GAP_FACTOR, shapeTargetGap, computeAutoKerningValue, computeAutoKerningTable, kerningTableCache, getKerningTableCached, DEFAULT_SPACE_WIDTH, SPACE_WIDTH_FACTOR, computeAutoSpaceWidth, spaceWidthCache, getAutoSpaceWidthCached, getKerningAdjustment, pad4, computeTableChecksum, KERN_SUBTABLE_HEADER_SIZE, KERN_MAX_PAIRS_PER_SUBTABLE, encodeKernSubtable, makeKernTableBuffer, makeGposTableBuffer, injectKernTable, convertCffToTrueType, WOFF2_WASM_URL, ensureWoff2Ready, measureGlyphVerticalExtent, computeTextMetrics, layoutTextToLines, renderTextToCanvas, isOutlineStroke, flattenQuadTo, flattenCubicTo, fontPathToCanvasContours, setupCanvasDPI, snapAngle, measureGuideGlyphBounds, centerStrokes } from '../components/fontmaker/fontUtils.js' // i'm not even going to try to explain this one
 import '../fontmaker.css'
+
+const FMKP_MAGIC = [0x46, 0x4d, 0x4b, 0x50]
+const FMKP_HEADER_SIZE = 10
+const FMKP_MAX_SIZE = 64 * 1024 * 1024
+
+async function transformProjectBytes(bytes, format, mode, maxOutputSize = FMKP_MAX_SIZE) {
+  const Stream = globalThis[mode === 'compress' ? 'CompressionStream' : 'DecompressionStream']
+  if (typeof Stream === 'undefined') throw new Error('This browser does not support compressed font projects.')
+  const stream = new Blob([bytes]).stream().pipeThrough(new Stream(format))
+  const reader = stream.getReader()
+  const chunks = []
+  let size = 0
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    size += value.byteLength
+    if (size > maxOutputSize) {
+      await reader.cancel()
+      throw new Error('This FontMaker project expands beyond the supported size limit.')
+    }
+    chunks.push(value)
+  }
+  const output = new Uint8Array(size)
+  let offset = 0
+  for (const chunk of chunks) {
+    output.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return output
+}
+
+async function encodeProjectFile(project) {
+  const raw = new TextEncoder().encode(JSON.stringify(project))
+  if (raw.byteLength > FMKP_MAX_SIZE) throw new Error('This project is too large to save.')
+  const compressed = await transformProjectBytes(raw, 'gzip', 'compress')
+  const output = new Uint8Array(FMKP_HEADER_SIZE + compressed.byteLength)
+  output.set(FMKP_MAGIC)
+  output[4] = 1
+  output[5] = 1
+  new DataView(output.buffer).setUint32(6, raw.byteLength, true)
+  output.set(compressed, FMKP_HEADER_SIZE)
+  return output
+}
+
+async function decodeProjectFile(file) {
+  if (file.size < FMKP_HEADER_SIZE || file.size > FMKP_MAX_SIZE) throw new Error('That file is not a valid FontMaker project.')
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  if (!FMKP_MAGIC.every((value, index) => bytes[index] === value)) throw new Error('That file is not a FontMaker project.')
+  if (bytes[4] !== 1 || bytes[5] !== 1) throw new Error('This FontMaker project version or compression format is not supported.')
+  const expectedSize = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(6, true)
+  if (expectedSize > FMKP_MAX_SIZE) throw new Error('This project expands beyond the supported size limit.')
+  const raw = await transformProjectBytes(bytes.subarray(FMKP_HEADER_SIZE), 'gzip', 'decompress', expectedSize)
+  if (raw.byteLength !== expectedSize) throw new Error('This FontMaker project is incomplete or damaged.')
+  return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(raw))
+}
 
 export default function FontMaker() {
   const [guideFont, setGuideFont] = useState(loadGuideFont)
@@ -33,7 +88,11 @@ export default function FontMaker() {
   const [loadingCustomGuideFont, setLoadingCustomGuideFont] = useState(false)
   const [guideFontError, setGuideFontError] = useState(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [projectBusy, setProjectBusy] = useState(false)
+  const [projectError, setProjectError] = useState(null)
+  const [duplicatePickerOpen, setDuplicatePickerOpen] = useState(false)
   const importInputRef = useRef(null)
+  const projectInputRef = useRef(null)
   const importModeRef = useRef('current')
   const guideFontInputRef = useRef(null)
   const strokesRefs = useRef({})
@@ -362,6 +421,97 @@ export default function FontMaker() {
     }
   }
 
+  const handleSaveProject = async () => {
+    setProjectBusy(true)
+    setProjectError(null)
+    try {
+      const glyphs = Object.fromEntries(ALL_CHARS.map(char => [char, strokesRefs.current[char] || []]))
+      const project = {
+        version: 1,
+        fontName,
+        customSymbols,
+        settings: { brushSize, guideFont, steadyHand, smoothIntensity, guideOpacity, kerningStrength },
+        glyphs,
+      }
+      const bytes = await encodeProjectFile(project)
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.fontmaker.project' }))
+      const safeName = (fontName || 'my-font').trim().replace(/\s+/g, '-').toLowerCase() || 'my-font'
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${safeName}.fmkp`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (err) {
+      setProjectError(err.message || 'Could not save this FontMaker project.')
+    } finally {
+      setProjectBusy(false)
+    }
+  }
+
+  const handleLoadProject = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setProjectBusy(true)
+    setProjectError(null)
+    try {
+      const project = await decodeProjectFile(file)
+      if (project?.version !== 1 || !project.glyphs || typeof project.glyphs !== 'object' || Array.isArray(project.glyphs)) {
+        throw new Error('This FontMaker project has an invalid structure.')
+      }
+      const glyphEntries = Object.entries(project.glyphs)
+      if (glyphEntries.length > 4096 || glyphEntries.some(([char, strokes]) =>
+        Array.from(char).length !== 1 || !Array.isArray(strokes) || strokes.some(stroke =>
+          !Array.isArray(stroke) || stroke.some(point =>
+            !point || !Number.isFinite(point.x) || !Number.isFinite(point.y) || Math.abs(point.x) > 100000 || Math.abs(point.y) > 100000
+          )
+        )
+      )) throw new Error('This FontMaker project contains invalid glyph data.')
+
+      const knownChars = new Set(BASE_CHAR_GROUPS.flatMap(group => group.chars))
+      const importedSymbols = Array.isArray(project.customSymbols)
+        ? [...new Set(project.customSymbols.filter(char => typeof char === 'string' && Array.from(char).length === 1 && !knownChars.has(char)))]
+        : []
+      for (const [char] of glyphEntries) {
+        if (!knownChars.has(char) && !importedSymbols.includes(char)) importedSymbols.push(char)
+      }
+      const drawnCount = glyphEntries.filter(([, strokes]) => strokes.length > 0).length
+      if (!window.confirm(`Load "${file.name}" and replace the current project? This will replace ${drawnChars.size} drawn glyph${drawnChars.size === 1 ? '' : 's'} with ${drawnCount} from the file.`)) return
+
+      const charsToReplace = new Set([...ALL_CHARS, ...glyphEntries.map(([char]) => char)])
+      for (const char of charsToReplace) {
+        strokesRefs.current[char] = project.glyphs[char] || []
+      }
+      setCustomSymbols(importedSymbols)
+      saveCustomSymbols(importedSymbols)
+      rebuildCharGroups(importedSymbols)
+      const failedChars = []
+      for (const char of charsToReplace) {
+        const result = await saveStroke(char, strokesRefs.current[char])
+        if (!result.ok) failedChars.push(char)
+      }
+      const settings = project.settings || {}
+      if (typeof project.fontName === 'string' && project.fontName.trim()) setFontName(project.fontName)
+      if (Number.isFinite(settings.brushSize) && settings.brushSize >= 4 && settings.brushSize <= 32) setBrushSize(settings.brushSize)
+      if (GUIDE_FONTS.some(font => font.value === settings.guideFont)) setGuideFont(settings.guideFont)
+      if (typeof settings.steadyHand === 'boolean') setSteadyHand(settings.steadyHand)
+      if (Number.isFinite(settings.smoothIntensity) && settings.smoothIntensity >= 1 && settings.smoothIntensity <= 100) setSmoothIntensity(settings.smoothIntensity)
+      if (Number.isFinite(settings.guideOpacity) && settings.guideOpacity >= 0 && settings.guideOpacity <= 60) setGuideOpacity(settings.guideOpacity)
+      if (Number.isFinite(settings.kerningStrength) && settings.kerningStrength >= 0 && settings.kerningStrength <= 200) setKerningStrength(settings.kerningStrength)
+      setDrawnChars(new Set(glyphEntries.filter(([, strokes]) => strokes.length > 0).map(([char]) => char)))
+      setSaveErrorChars(new Set(failedChars))
+      setIndex(0)
+      setResetVersion(value => value + 1)
+      if (failedChars.length > 0) setProjectError(`Loaded the project, but ${failedChars.length} glyph${failedChars.length === 1 ? '' : 's'} could not be saved in this browser.`)
+    } catch (err) {
+      setProjectError(err.message || 'Could not load this FontMaker project.')
+    } finally {
+      setProjectBusy(false)
+    }
+  }
+
   const goPrev = useCallback(() => {
     setIndex(i => Math.max(0, i - 1))
   }, [])
@@ -385,6 +535,10 @@ export default function FontMaker() {
 
   const progress = drawnChars.size
   const currentChar = ALL_CHARS[index]
+  const duplicatableGlyphs = useMemo(
+    () => ALL_CHARS.filter(char => drawnChars.has(char)).map(char => ({ char, strokes: strokesRefs.current[char] || [] })),
+    [drawnChars, resetVersion]
+  )
 
   const currentGroupInfo = useMemo(() => {
     let offset = 0
@@ -571,10 +725,34 @@ export default function FontMaker() {
             <span className="fm-page-title">Draw-A-Font</span>
             <span className="fm-page-subtitle">{progress} / {ALL_CHARS.length} drawn</span>
           </div>
+          <div className="fm-project-actions">
+            <button
+              className="fm-project-btn"
+              onClick={handleSaveProject}
+              disabled={bootLoading || projectBusy || duplicatePickerOpen}
+              type="button"
+              title="Save font project to an .fmkp file"
+            ><Download size={15} /><span>Save</span></button>
+            <button
+              className="fm-project-btn"
+              onClick={() => projectInputRef.current?.click()}
+              disabled={bootLoading || projectBusy || duplicatePickerOpen}
+              type="button"
+              title="Load a font project from an .fmkp file"
+            ><Upload size={15} /><span>Load</span></button>
+            <input
+              ref={projectInputRef}
+              type="file"
+              accept=".fmkp,application/vnd.fontmaker.project"
+              onChange={handleLoadProject}
+              style={{ display: 'none' }}
+            />
+          </div>
         </div>
       </div>
 
       <main className="fm-main">
+        {projectError && <div className="fm-project-error" role="alert">{projectError}</div>}
         {bootLoading && (
           <div className="fm-boot-overlay" role="status" aria-live="polite">
             <div className="fm-boot-overlay-inner">
@@ -822,6 +1000,8 @@ export default function FontMaker() {
           steadyHand={steadyHand}
           smoothIntensity={smoothIntensity}
           resetKey={resetVersion}
+          duplicatableGlyphs={duplicatableGlyphs}
+          onDuplicatePickerChange={setDuplicatePickerOpen}
         />
 
         <FontPreview

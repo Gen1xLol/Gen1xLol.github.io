@@ -40,6 +40,50 @@
   overflow: hidden;
 }
 
+.fm-project-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.fm-project-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--border-hair);
+  background: rgba(128, 98, 168, 0.2);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.fm-project-btn:hover:not(:disabled) {
+  background: rgba(128, 98, 168, 0.38);
+}
+
+.fm-project-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.fm-project-error {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border: 1px solid rgba(232, 169, 120, 0.35);
+  border-radius: var(--radius-sm);
+  background: rgba(232, 169, 120, 0.1);
+  color: #e8a978;
+  font-size: 0.82rem;
+}
+
 .fm-page-title {
   font-weight: 700;
   font-size: 1.1rem;
@@ -600,6 +644,138 @@
   cursor: crosshair;
 }
 
+.fm-duplicate-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.fm-duplicate-btn,
+.fm-duplicate-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--border-hair);
+  background: rgba(28, 20, 47, 0.45);
+  color: var(--text);
+  font-family: var(--font-ui);
+  cursor: pointer;
+}
+
+.fm-duplicate-btn {
+  padding: 8px 13px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+}
+
+.fm-duplicate-btn:hover:not(:disabled),
+.fm-duplicate-close:hover {
+  background: rgba(128, 98, 168, 0.3);
+}
+
+.fm-duplicate-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.fm-duplicate-overlay {
+  position: fixed;
+  inset: var(--fm-duplicate-top, 0px) 0 0;
+  z-index: 39;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(10, 7, 18, 0.76);
+  backdrop-filter: blur(5px);
+}
+
+.fm-duplicate-dialog {
+  width: min(560px, 100%);
+  max-height: min(700px, calc(100vh - var(--fm-duplicate-top, 0px) - 36px));
+  display: flex;
+  flex-direction: column;
+  background: #34264f;
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  outline: none;
+}
+
+.fm-duplicate-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid var(--border-hair);
+}
+
+.fm-duplicate-header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.fm-duplicate-header p {
+  margin: 5px 0 0;
+  color: var(--soft);
+  font-size: 0.82rem;
+}
+
+.fm-duplicate-close {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+}
+
+.fm-duplicate-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px 18px 18px;
+  overflow-y: auto;
+}
+
+.fm-duplicate-option {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border-hair);
+  border-radius: var(--radius-md);
+  background: rgba(28, 20, 47, 0.5);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.fm-duplicate-option:hover:not(:disabled),
+.fm-duplicate-option:focus-visible:not(:disabled) {
+  border-color: var(--border-glow);
+  background: rgba(128, 98, 168, 0.25);
+  outline: none;
+}
+
+.fm-duplicate-option:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.fm-duplicate-option-canvas {
+  display: block;
+  width: 72px;
+  height: 72px;
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+  background: var(--bg-deep);
+}
+
 .fm-preview,
 .fm-typebox {
   background: #34264f;
@@ -853,6 +1029,18 @@
     gap: 2px;
   }
 
+  .fm-project-actions {
+    gap: 5px;
+  }
+
+  .fm-project-btn {
+    padding: 8px;
+  }
+
+  .fm-project-btn span {
+    display: none;
+  }
+
   .fm-toolbar,
   .fm-toolbar-row3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -888,6 +1076,15 @@
 
   .fm-current-char {
     font-size: 2rem;
+  }
+
+  .fm-duplicate-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 12px;
+  }
+
+  .fm-duplicate-header {
+    padding: 14px 12px 12px;
   }
 
   .fm-strip {
