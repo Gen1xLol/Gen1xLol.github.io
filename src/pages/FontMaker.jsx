@@ -82,6 +82,7 @@ export default function FontMaker() {
   const [importError, setImportError] = useState(null)
   const [bootLoading, setBootLoading] = useState(true)
   const [bootProgress, setBootProgress] = useState(0)
+  const [bootStatus, setBootStatus] = useState('Loading saved glyphs...')
   const [guideOpacity, setGuideOpacity] = useState(loadGuideOpacity)
   const [kerningStrength, setKerningStrength] = useState(loadKerningStrength)
   const [customSymbols, setCustomSymbols] = useState(loadCustomSymbols)
@@ -117,6 +118,8 @@ export default function FontMaker() {
       setDrawnChars(drawn)
       setResetVersion(v => v + 1)
       setKerningVersion(v => v + 1)
+      setBootProgress(100)
+      setBootStatus('Finishing up...')
       setBootLoading(false)
     }
 
@@ -151,10 +154,13 @@ export default function FontMaker() {
     const boot = async () => {
       let entries
       try {
-        entries = await Promise.all(ALL_CHARS.map(async char => ({
-          char,
-          strokes: await loadStroke(char),
-        })))
+        const loadedEntries = []
+        for (const [index, char] of ALL_CHARS.entries()) {
+          setBootStatus(`Loading saved glyph ${char}...`)
+          loadedEntries.push({ char, strokes: await loadStroke(char) })
+          setBootProgress(Math.round(((index + 1) / ALL_CHARS.length) * 20))
+        }
+        entries = loadedEntries
       } catch {
         entries = ALL_CHARS.map(char => ({ char, strokes: [] }))
       }
@@ -175,19 +181,25 @@ export default function FontMaker() {
       worker.onmessage = (e) => {
         if (cancelled) return
         const { type, done, total, results } = e.data
-        if (type === 'progress') {
-          setBootProgress(Math.round((done / total) * 100))
+        if (type === 'status') {
+          setBootStatus(`Processing glyph ${e.data.char} - ${e.data.phase}...`)
+        } else if (type === 'progress') {
+          const processed = Math.min(done, total)
+          setBootProgress(20 + Math.round((processed / total) * 80))
         } else if (type === 'complete') {
           setBootProgress(100)
+          setBootStatus('Finishing up...')
           applyResults(results)
         }
       }
 
       worker.onerror = () => {
         if (cancelled) return
+        setBootStatus('Finishing up...')
         runMainThreadFallback(entries)
       }
 
+      setBootStatus('Preparing glyph processing...')
       worker.postMessage({ type: 'process', jobId: 1, entries, brushSize: brushSizeRef.current })
     }
 
@@ -774,13 +786,22 @@ export default function FontMaker() {
           <div className="fm-boot-overlay" role="status" aria-live="polite">
             <div className="fm-boot-overlay-inner">
               <div className="fm-boot-overlay-label">Hold on! We're loading here!</div>
-              <div className="fm-boot-progress-track">
+              <div className="fm-boot-progress-row">
                 <div
-                  className="fm-boot-progress-fill"
-                  style={{ transform: `scaleX(${Math.max(0, Math.min(100, bootProgress)) / 100})` }}
-                />
+                  className="fm-boot-progress-track"
+                  role="progressbar"
+                  aria-label={bootStatus}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={bootProgress}
+                >
+                  <div
+                    className="fm-boot-progress-fill"
+                    style={{ transform: `scaleX(${Math.max(0, Math.min(100, bootProgress)) / 100})` }}
+                  />
+                </div>
+                <div className="fm-boot-progress-detail">{bootStatus} - {bootProgress}%</div>
               </div>
-              <div className="fm-boot-progress-pct">{bootProgress}%</div>
             </div>
           </div>
         )}

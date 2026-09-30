@@ -276,6 +276,7 @@ self.onmessage = (e) => {
     const end = Math.min(i + chunkSize, total)
     for (; i < end; i++) {
       const { char, strokes: rawStrokes } = entries[i]
+      self.postMessage({ type: 'status', jobId, char, phase: 'loading stroke data' })
       let strokes = []
       let corrupt = false
 
@@ -290,12 +291,14 @@ self.onmessage = (e) => {
       let contours = []
       if (strokes.length > 0) {
         try {
+          self.postMessage({ type: 'status', jobId, char, phase: 'tracing outlines' })
           contours = computeGlyphContours(strokes, brushSize)
         } catch {
           contours = []
         }
       }
 
+      self.postMessage({ type: 'status', jobId, char, phase: 'saving result' })
       results[i] = { char, strokes, contours, corrupt }
     }
 

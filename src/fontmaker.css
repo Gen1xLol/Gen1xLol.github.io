@@ -129,6 +129,14 @@
   margin-bottom: 16px;
 }
 
+.fm-boot-progress-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  text-align: left;
+}
+
 .fm-boot-progress-track {
   position: relative;
   height: 12px;
@@ -148,10 +156,11 @@
   transition: transform 0.25s ease;
 }
 
-.fm-boot-progress-pct {
-  margin-top: 8px;
+.fm-boot-progress-detail {
+  min-width: 0;
   font-size: 0.8rem;
   color: var(--soft);
+  line-height: 1.35;
 }
 
 .fm-intro {
