@@ -178,6 +178,7 @@ export default function FontMaker() {
         if (type === 'progress') {
           setBootProgress(Math.round((done / total) * 100))
         } else if (type === 'complete') {
+          setBootProgress(100)
           applyResults(results)
         }
       }
@@ -776,7 +777,7 @@ export default function FontMaker() {
               <div className="fm-boot-progress-track">
                 <div
                   className="fm-boot-progress-fill"
-                  style={{ width: `${Math.max(0, Math.min(100, bootProgress))}%` }}
+                  style={{ transform: `scaleX(${Math.max(0, Math.min(100, bootProgress)) / 100})` }}
                 />
               </div>
               <div className="fm-boot-progress-pct">{bootProgress}%</div>
