@@ -1,5 +1,6 @@
 import { Font, Glyph, Path, parse as parseFont } from 'opentype.js'
 import { createFont as createFontEditorFont, woff2 } from 'fonteditor-core'
+import { traceMaskToPolygons } from './traceMaskToPolygons.js'
 
 const CANVAS_SIZE = 480
 const UNITS_PER_EM = 1000
@@ -16,6 +17,12 @@ const BASE_CHAR_GROUPS = [
 
 const CUSTOM_SYMBOLS_STORAGE_KEY = 'fontmaker-custom-symbols'
 
+function isSingleUnicodeScalar(value) {
+  if (typeof value !== 'string' || Array.from(value).length !== 1) return false
+  const codePoint = value.codePointAt(0)
+  return codePoint < 0xD800 || codePoint > 0xDFFF
+}
+
 function loadCustomSymbols() {
   try {
     const stored = localStorage.getItem(CUSTOM_SYMBOLS_STORAGE_KEY)
@@ -25,7 +32,7 @@ function loadCustomSymbols() {
     const base = new Set(BASE_CHAR_GROUPS.flatMap(g => g.chars))
     const seen = new Set()
     return parsed.filter(c => {
-      if (typeof c !== 'string' || c.length !== 1) return false
+      if (!isSingleUnicodeScalar(c)) return false
       if (base.has(c) || seen.has(c)) return false
       seen.add(c)
       return true
@@ -215,83 +222,6 @@ function rasterizeStrokesToMask(strokes, brushSize) {
   const mask = new Uint8Array(TRACE_SIZE * TRACE_SIZE)
   for (let i = 0; i < mask.length; i++) mask[i] = data[i * 4 + 3] > 127 ? 1 : 0
   return mask
-}
-
-function traceMaskToPolygons(mask, size) {
-  const at = (x, y) => {
-    if (x < 0 || y < 0 || x >= size || y >= size) return 0
-    return mask[y * size + x]
-  }
-
-  const segments = []
-  for (let y = 0; y <= size; y++) {
-    for (let x = 0; x < size; x++) {
-      const above = at(x, y - 1)
-      const below = at(x, y)
-      if (above !== below) segments.push([x, y, x + 1, y])
-    }
-  }
-  for (let x = 0; x <= size; x++) {
-    for (let y = 0; y < size; y++) {
-      const left = at(x - 1, y)
-      const right = at(x, y)
-      if (left !== right) segments.push([x, y, x, y + 1])
-    }
-  }
-
-  const pointKey = (x, y) => `${x},${y}`
-  const adjacency = new Map()
-  for (const [x1, y1, x2, y2] of segments) {
-    const a = pointKey(x1, y1)
-    const b = pointKey(x2, y2)
-    if (!adjacency.has(a)) adjacency.set(a, [])
-    if (!adjacency.has(b)) adjacency.set(b, [])
-    adjacency.get(a).push(b)
-    adjacency.get(b).push(a)
-  }
-
-  const usedEdges = new Set()
-  const edgeKey = (a, b) => (a < b ? `${a}|${b}` : `${b}|${a}`)
-  const polygons = []
-
-  for (const startKey of adjacency.keys()) {
-    const neighbors = adjacency.get(startKey)
-    for (const firstNeighbor of neighbors) {
-      const startEdge = edgeKey(startKey, firstNeighbor)
-      if (usedEdges.has(startEdge)) continue
-
-      const contour = [startKey]
-      let prevKey = startKey
-      let currKey = firstNeighbor
-      usedEdges.add(startEdge)
-
-      while (currKey !== startKey) {
-        contour.push(currKey)
-        const options = adjacency.get(currKey) || []
-        let nextKey = null
-        for (const cand of options) {
-          if (cand === prevKey && options.length > 1) continue
-          const key = edgeKey(currKey, cand)
-          if (usedEdges.has(key)) continue
-          nextKey = cand
-          break
-        }
-        if (nextKey === null) break
-        usedEdges.add(edgeKey(currKey, nextKey))
-        prevKey = currKey
-        currKey = nextKey
-      }
-
-      if (contour.length >= 3) {
-        polygons.push(contour.map(k => {
-          const [px, py] = k.split(',').map(Number)
-          return { x: px, y: py }
-        }))
-      }
-    }
-  }
-
-  return polygons
 }
 
 function sqDistToSegment(p, a, b) {
@@ -1017,9 +947,20 @@ const glyphProfilesCache = new WeakMap()
 
 function getGlyphProfilesCached(strokesRefs, brushSize, version) {
   const entry = glyphProfilesCache.get(strokesRefs)
-  if (entry && entry.brushSize === brushSize && entry.version === version) return entry.profiles
-  const profiles = computeGlyphProfiles(strokesRefs, brushSize)
-  glyphProfilesCache.set(strokesRefs, { brushSize, version, profiles })
+  const cache = entry?.brushSize === brushSize ? entry.profiles : new Map()
+  const profiles = {}
+  for (const char of ALL_CHARS) {
+    const strokes = strokesRefs.current[char]
+    if (!strokes || strokes.length === 0) continue
+    let profile = cache.get(char)
+    if (!profile || profile.strokes !== strokes) {
+      const { path, advanceWidth } = buildGlyphPathCached(strokes, brushSize, 50)
+      profile = { strokes, value: glyphSideProfiles(path, advanceWidth, char) }
+      cache.set(char, profile)
+    }
+    profiles[char] = profile.value
+  }
+  glyphProfilesCache.set(strokesRefs, { brushSize, version, profiles: cache })
   return profiles
 }
 
@@ -1841,7 +1782,6 @@ async function importGlyphsFromFontFile(file, chars = ALL_CHARS) {
 
   const result = {}
   for (const char of chars) {
-    const codePoint = char.charCodeAt(0)
     const glyphIndex = font.charToGlyphIndex(char)
     if (!glyphIndex) continue
     const glyph = font.glyphs.get(glyphIndex)
@@ -1986,6 +1926,7 @@ export {
   BASE_CHAR_GROUPS,
   CUSTOM_SYMBOLS_STORAGE_KEY,
   loadCustomSymbols,
+  isSingleUnicodeScalar,
   saveCustomSymbols,
   rebuildCharGroups,
 

@@ -40,6 +40,7 @@ export function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialS
   const currentStrokeRef = useRef([])
   const lineStartRef = useRef(null)
   const historyRef = useRef([initialStrokes])
+  const historyByCharRef = useRef(new Map([[char, { history: [initialStrokes], index: 0 }]]))
   const historyIndexRef = useRef(0)
   const [tool, setTool] = useState('brush')
   const [shiftHeld, setShiftHeld] = useState(false)
@@ -61,10 +62,19 @@ export function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialS
   }, [char, guideFont, brushSize, guideOpacity])
 
   useEffect(() => {
+    historyByCharRef.current = new Map([[char, { history: [initialStrokes], index: 0 }]])
     historyRef.current = [initialStrokes]
     historyIndexRef.current = 0
     redraw()
-  }, [char, resetKey])
+  }, [resetKey])
+
+  useEffect(() => {
+    const state = historyByCharRef.current.get(char) || { history: [initialStrokes], index: 0 }
+    historyByCharRef.current.set(char, state)
+    historyRef.current = state.history
+    historyIndexRef.current = state.index
+    redraw()
+  }, [char])
 
   useEffect(() => {
     redraw()
@@ -96,6 +106,7 @@ export function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialS
     trimmed.push(strokes)
     historyRef.current = trimmed
     historyIndexRef.current = trimmed.length - 1
+    historyByCharRef.current.set(char, { history: trimmed, index: historyIndexRef.current })
     saveStroke(char, strokes).then(result => onCommit(char, strokes, result.ok))
     redraw()
   }, [char, onCommit, redraw])
@@ -104,6 +115,7 @@ export function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialS
     if (historyIndexRef.current <= 0) return
     historyIndexRef.current -= 1
     const strokes = historyRef.current[historyIndexRef.current]
+    historyByCharRef.current.set(char, { history: historyRef.current, index: historyIndexRef.current })
     saveStroke(char, strokes).then(result => onCommit(char, strokes, result.ok))
     redraw()
   }, [char, redraw])
@@ -112,6 +124,7 @@ export function GlyphEditor({ char, guideFont, brushSize, guideOpacity, initialS
     if (historyIndexRef.current >= historyRef.current.length - 1) return
     historyIndexRef.current += 1
     const strokes = historyRef.current[historyIndexRef.current]
+    historyByCharRef.current.set(char, { history: historyRef.current, index: historyIndexRef.current })
     saveStroke(char, strokes).then(result => onCommit(char, strokes, result.ok))
     redraw()
   }, [char, redraw])

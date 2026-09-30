@@ -1,3 +1,5 @@
+import { traceMaskToPolygons } from './traceMaskToPolygons.js'
+
 const CANVAS_SIZE = 480
 const UNITS_PER_EM = 1000
 const DESCENDER = -200
@@ -67,84 +69,6 @@ function rasterizeStrokesToMask(strokes, brushSize) {
   }
   const bounds = maxX < 0 ? null : { minX, minY, maxX, maxY }
   return { mask, bounds }
-}
-
-function traceMaskToPolygons(mask, size, bounds) {
-  if (!bounds) return []
-  const at = (x, y) => {
-    if (x < 0 || y < 0 || x >= size || y >= size) return 0
-    return mask[y * size + x]
-  }
-
-  const segments = []
-  for (let y = bounds.minY; y <= bounds.maxY + 1; y++) {
-    for (let x = bounds.minX; x <= bounds.maxX; x++) {
-      const above = at(x, y - 1)
-      const below = at(x, y)
-      if (above !== below) segments.push([x, y, x + 1, y])
-    }
-  }
-  for (let x = bounds.minX; x <= bounds.maxX + 1; x++) {
-    for (let y = bounds.minY; y <= bounds.maxY; y++) {
-      const left = at(x - 1, y)
-      const right = at(x, y)
-      if (left !== right) segments.push([x, y, x, y + 1])
-    }
-  }
-
-  const pointKey = (x, y) => `${x},${y}`
-  const adjacency = new Map()
-  for (const [x1, y1, x2, y2] of segments) {
-    const a = pointKey(x1, y1)
-    const b = pointKey(x2, y2)
-    if (!adjacency.has(a)) adjacency.set(a, [])
-    if (!adjacency.has(b)) adjacency.set(b, [])
-    adjacency.get(a).push(b)
-    adjacency.get(b).push(a)
-  }
-
-  const usedEdges = new Set()
-  const edgeKey = (a, b) => (a < b ? `${a}|${b}` : `${b}|${a}`)
-  const polygons = []
-
-  for (const startKey of adjacency.keys()) {
-    const neighbors = adjacency.get(startKey)
-    for (const firstNeighbor of neighbors) {
-      const startEdge = edgeKey(startKey, firstNeighbor)
-      if (usedEdges.has(startEdge)) continue
-
-      const contour = [startKey]
-      let prevKey = startKey
-      let currKey = firstNeighbor
-      usedEdges.add(startEdge)
-
-      while (currKey !== startKey) {
-        contour.push(currKey)
-        const options = adjacency.get(currKey) || []
-        let nextKey = null
-        for (const cand of options) {
-          if (cand === prevKey && options.length > 1) continue
-          const key = edgeKey(currKey, cand)
-          if (usedEdges.has(key)) continue
-          nextKey = cand
-          break
-        }
-        if (nextKey === null) break
-        usedEdges.add(edgeKey(currKey, nextKey))
-        prevKey = currKey
-        currKey = nextKey
-      }
-
-      if (contour.length >= 3) {
-        polygons.push(contour.map(k => {
-          const [px, py] = k.split(',').map(Number)
-          return { x: px, y: py }
-        }))
-      }
-    }
-  }
-
-  return polygons
 }
 
 function sqDistToSegment(p, a, b) {
@@ -237,7 +161,7 @@ function computeGlyphContours(strokes, brushSize) {
   if (!hasContent) return []
 
   const { mask, bounds } = rasterizeStrokesToMask(strokes, brushSize)
-  const rawPolygons = traceMaskToPolygons(mask, TRACE_SIZE, bounds)
+  const rawPolygons = bounds ? traceMaskToPolygons(mask, TRACE_SIZE, bounds) : []
 
   const contours = []
   for (const poly of rawPolygons) {
@@ -333,3 +257,5 @@ self.onmessage = (e) => {
 
   processChunk()
 }
+
+

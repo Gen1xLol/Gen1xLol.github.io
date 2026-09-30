@@ -5,7 +5,7 @@ import { createFont as createFontEditorFont, woff2 } from 'fonteditor-core'
 import { ArrowLeft, ArrowRight, Undo2, Redo2, X, Space, TriangleAlert, Plus, PenLine, Locate, Minus, Upload, Trash2, Download } from 'lucide-react'
 import { loadStroke, saveStroke, clearStroke } from '../glyphDB.js'
 import { GlyphEditor, FontPreview, TypeBox } from '../components/fontmaker/FontMakerComponents.jsx'
-import { CHAR_GROUPS, ALL_CHARS } from '../components/fontmaker/fontUtils.js'
+import { CHAR_GROUPS, ALL_CHARS, isSingleUnicodeScalar } from '../components/fontmaker/fontUtils.js'
 import { CANVAS_SIZE, UNITS_PER_EM, ASCENDER, DESCENDER, SCALE, BASE_CHAR_GROUPS, CUSTOM_SYMBOLS_STORAGE_KEY, loadCustomSymbols, saveCustomSymbols, rebuildCharGroups, GUIDE_FONT_STORAGE_KEY, GUIDE_FONTS, loadGuideFont, BRUSH_SIZE_STORAGE_KEY, FONT_NAME_STORAGE_KEY, STEADY_HAND_STORAGE_KEY, SMOOTH_INTENSITY_STORAGE_KEY, loadBrushSize, loadFontName, loadSteadyHand, loadSmoothIntensity, KERNING_STRENGTH_STORAGE_KEY, DEFAULT_KERNING_STRENGTH, loadKerningStrength, GUIDE_OPACITY_STORAGE_KEY, loadGuideOpacity, CUSTOM_GUIDE_FONT_NAME, loadCustomGuideFont, TRACE_SUPERSAMPLE, TRACE_SIZE, rasterizeStrokesToMask, traceMaskToPolygons, sqDistToSegment, douglasPeucker, simplifyPolygon, signedArea, pointInPolygon, glyphPathCache, buildGlyphPathCached, seedGlyphPathCache, computeGlyphContours, pathFromContours, buildGlyphPath, resampleStroke, smoothStroke, drawGlyph, pathToCanvasPolygons, measureGlyphWidth, KERN_SAMPLE_STEPS, KERN_TARGET_GAP, KERN_MAX_ADJUST, KERN_ZONE_WEIGHT, KERN_STRAIGHT_SLOPE_THRESHOLD, KERN_ROUND_SPREAD_THRESHOLD, glyphSideProfiles, classifySide, classifyGlyphSides, SHAPE_GAP_FACTOR, shapeTargetGap, computeAutoKerningValue, computeAutoKerningTable, kerningTableCache, getKerningTableCached, DEFAULT_SPACE_WIDTH, SPACE_WIDTH_FACTOR, computeAutoSpaceWidth, spaceWidthCache, getAutoSpaceWidthCached, getKerningAdjustment, pad4, computeTableChecksum, KERN_SUBTABLE_HEADER_SIZE, KERN_MAX_PAIRS_PER_SUBTABLE, encodeKernSubtable, makeKernTableBuffer, makeGposTableBuffer, injectKernTable, convertCffToTrueType, WOFF2_WASM_URL, ensureWoff2Ready, convertTrueTypeToWoff2, measureGlyphVerticalExtent, computeTextMetrics, layoutTextToLines, renderTextToCanvas, isOutlineStroke, flattenQuadTo, flattenCubicTo, fontPathToCanvasContours, setupCanvasDPI, snapAngle, measureGuideGlyphBounds, centerStrokes, importGlyphsFromFontFile } from '../components/fontmaker/fontUtils.js' // i'm not even going to try to explain this one
 import '../fontmaker.css'
 
@@ -173,7 +173,7 @@ export default function FontMaker() {
       }
 
       try {
-        worker = new Worker(new URL('/glyphWorker.js', import.meta.url))
+        worker = new Worker(new URL('../components/fontmaker/glyphWorker.js', import.meta.url), { type: 'module' })
       } catch {
         runMainThreadFallback(entries)
         return
@@ -300,6 +300,7 @@ export default function FontMaker() {
   const handleSetBrushSize = useCallback(size => {
     setBrushSize(size)
     setPreviewVersion(v => v + 1)
+    setKerningVersion(v => v + 1)
   }, [])
 
   const handleClearAll = () => {
@@ -490,16 +491,18 @@ export default function FontMaker() {
       }
       const glyphEntries = Object.entries(project.glyphs)
       if (glyphEntries.length > 4096 || glyphEntries.some(([char, strokes]) =>
-        Array.from(char).length !== 1 || !Array.isArray(strokes) || strokes.some(stroke =>
-          !Array.isArray(stroke) || stroke.some(point =>
-            !point || !Number.isFinite(point.x) || !Number.isFinite(point.y) || Math.abs(point.x) > 100000 || Math.abs(point.y) > 100000
+        !isSingleUnicodeScalar(char) || !Array.isArray(strokes) || strokes.some(stroke => {
+          const validPoint = point => point && Number.isFinite(point.x) && Number.isFinite(point.y) && Math.abs(point.x) <= 100000 && Math.abs(point.y) <= 100000
+          if (Array.isArray(stroke)) return stroke.some(point => !validPoint(point))
+          return !stroke || stroke.type !== 'outline' || !Array.isArray(stroke.contours) || stroke.contours.some(contour =>
+            !Array.isArray(contour) || contour.length < 3 || contour.some(point => !validPoint(point))
           )
-        )
+        })
       )) throw new Error('This FontMaker project contains invalid glyph data.')
 
       const knownChars = new Set(BASE_CHAR_GROUPS.flatMap(group => group.chars))
       const importedSymbols = Array.isArray(project.customSymbols)
-        ? [...new Set(project.customSymbols.filter(char => typeof char === 'string' && Array.from(char).length === 1 && !knownChars.has(char)))]
+        ? [...new Set(project.customSymbols.filter(char => isSingleUnicodeScalar(char) && !knownChars.has(char)))]
         : []
       for (const [char] of glyphEntries) {
         if (!knownChars.has(char) && !importedSymbols.includes(char)) importedSymbols.push(char)
@@ -581,12 +584,12 @@ export default function FontMaker() {
 
   const kerningTable = useMemo(
     () => getKerningTableCached(strokesRefs, brushSize, kerningVersion),
-    [strokesRefs, kerningVersion, drawnChars]
+    [strokesRefs, kerningVersion, drawnChars, brushSize]
   )
 
   const spaceWidth = useMemo(
     () => getAutoSpaceWidthCached(strokesRefs, brushSize, kerningVersion),
-    [strokesRefs, kerningVersion, drawnChars]
+    [strokesRefs, kerningVersion, drawnChars, brushSize]
   )
 
   const handleResetKerning = () => setKerningStrength(DEFAULT_KERNING_STRENGTH)
@@ -631,8 +634,10 @@ export default function FontMaker() {
         }
 
         const glyph = new Glyph({
-            name: char === ' ' ? 'space' : `uni${char.charCodeAt(0).toString(16).padStart(4, '0')}`,
-            unicode: char.charCodeAt(0),
+            name: char === ' ' ? 'space' : char.codePointAt(0) > 0xFFFF
+              ? `u${char.codePointAt(0).toString(16)}`
+              : `uni${char.codePointAt(0).toString(16).padStart(4, '0')}`,
+            unicode: char.codePointAt(0),
             advanceWidth,
             path,
         })
