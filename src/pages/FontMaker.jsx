@@ -154,13 +154,14 @@ export default function FontMaker() {
     const boot = async () => {
       let entries
       try {
-        const loadedEntries = []
-        for (const [index, char] of ALL_CHARS.entries()) {
-          setBootStatus(`Loading saved glyph ${char}...`)
-          loadedEntries.push({ char, strokes: await loadStroke(char) })
-          setBootProgress(Math.round(((index + 1) / ALL_CHARS.length) * 20))
-        }
-        entries = loadedEntries
+        let loadedCount = 0
+        entries = await Promise.all(ALL_CHARS.map(async char => {
+          const strokes = await loadStroke(char)
+          loadedCount++
+          setBootStatus(`Loaded saved glyph ${char}...`)
+          setBootProgress(Math.round((loadedCount / ALL_CHARS.length) * 20))
+          return { char, strokes }
+        }))
       } catch {
         entries = ALL_CHARS.map(char => ({ char, strokes: [] }))
       }

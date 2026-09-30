@@ -4,14 +4,17 @@ const DESCENDER = -200
 const SCALE = UNITS_PER_EM / CANVAS_SIZE
 const TRACE_SUPERSAMPLE = 2
 const TRACE_SIZE = CANVAS_SIZE * TRACE_SUPERSAMPLE
+const traceCanvas = new OffscreenCanvas(TRACE_SIZE, TRACE_SIZE)
+const traceContext = traceCanvas.getContext('2d')
 
 function isOutlineStroke(stroke) {
   return !Array.isArray(stroke) && stroke && stroke.type === 'outline'
 }
 
 function rasterizeStrokesToMask(strokes, brushSize) {
-  const canvas = new OffscreenCanvas(TRACE_SIZE, TRACE_SIZE)
-  const ctx = canvas.getContext('2d')
+  const ctx = traceContext
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.clearRect(0, 0, TRACE_SIZE, TRACE_SIZE)
   ctx.scale(TRACE_SUPERSAMPLE, TRACE_SUPERSAMPLE)
   ctx.fillStyle = '#000'
   ctx.strokeStyle = '#000'
@@ -46,26 +49,43 @@ function rasterizeStrokesToMask(strokes, brushSize) {
 
   const { data } = ctx.getImageData(0, 0, TRACE_SIZE, TRACE_SIZE)
   const mask = new Uint8Array(TRACE_SIZE * TRACE_SIZE)
-  for (let i = 0; i < mask.length; i++) mask[i] = data[i * 4 + 3] > 127 ? 1 : 0
-  return mask
+  let minX = TRACE_SIZE
+  let minY = TRACE_SIZE
+  let maxX = -1
+  let maxY = -1
+  for (let y = 0; y < TRACE_SIZE; y++) {
+    const rowOffset = y * TRACE_SIZE
+    for (let x = 0; x < TRACE_SIZE; x++) {
+      const filled = data[(rowOffset + x) * 4 + 3] > 127
+      if (!filled) continue
+      mask[rowOffset + x] = 1
+      if (x < minX) minX = x
+      if (x > maxX) maxX = x
+      if (y < minY) minY = y
+      if (y > maxY) maxY = y
+    }
+  }
+  const bounds = maxX < 0 ? null : { minX, minY, maxX, maxY }
+  return { mask, bounds }
 }
 
-function traceMaskToPolygons(mask, size) {
+function traceMaskToPolygons(mask, size, bounds) {
+  if (!bounds) return []
   const at = (x, y) => {
     if (x < 0 || y < 0 || x >= size || y >= size) return 0
     return mask[y * size + x]
   }
 
   const segments = []
-  for (let y = 0; y <= size; y++) {
-    for (let x = 0; x < size; x++) {
+  for (let y = bounds.minY; y <= bounds.maxY + 1; y++) {
+    for (let x = bounds.minX; x <= bounds.maxX; x++) {
       const above = at(x, y - 1)
       const below = at(x, y)
       if (above !== below) segments.push([x, y, x + 1, y])
     }
   }
-  for (let x = 0; x <= size; x++) {
-    for (let y = 0; y < size; y++) {
+  for (let x = bounds.minX; x <= bounds.maxX + 1; x++) {
+    for (let y = bounds.minY; y <= bounds.maxY; y++) {
       const left = at(x - 1, y)
       const right = at(x, y)
       if (left !== right) segments.push([x, y, x, y + 1])
@@ -216,8 +236,8 @@ function computeGlyphContours(strokes, brushSize) {
   const hasContent = strokes.some(s => isOutlineStroke(s) ? s.contours.length > 0 : s.length > 0)
   if (!hasContent) return []
 
-  const mask = rasterizeStrokesToMask(strokes, brushSize)
-  const rawPolygons = traceMaskToPolygons(mask, TRACE_SIZE)
+  const { mask, bounds } = rasterizeStrokesToMask(strokes, brushSize)
+  const rawPolygons = traceMaskToPolygons(mask, TRACE_SIZE, bounds)
 
   const contours = []
   for (const poly of rawPolygons) {
