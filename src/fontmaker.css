@@ -130,6 +130,7 @@
 }
 
 .fm-boot-progress-track {
+  position: relative;
   height: 12px;
   border-radius: 999px;
   background: rgba(28, 20, 47, 0.6);
@@ -138,7 +139,8 @@
 }
 
 .fm-boot-progress-fill {
-  height: 100%;
+  position: absolute;
+  inset: 0 auto 0 0;
   border-radius: 999px;
   background: var(--accent-2);
   transition: width 0.25s ease;

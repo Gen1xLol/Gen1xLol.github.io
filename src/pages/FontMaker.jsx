@@ -776,7 +776,7 @@ export default function FontMaker() {
               <div className="fm-boot-progress-track">
                 <div
                   className="fm-boot-progress-fill"
-                  style={{ width: `${bootProgress}%` }}
+                  style={{ width: `${Math.max(0, Math.min(100, bootProgress))}%` }}
                 />
               </div>
               <div className="fm-boot-progress-pct">{bootProgress}%</div>
