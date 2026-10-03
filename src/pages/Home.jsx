@@ -133,6 +133,7 @@ export default function Home() {
 			<a href="https://gen1xlol.github.io/Jarona-TTS" target="_blank" rel="noopener">Jarona TTS</a>
 			<Link to="/fontmaker">Draw-A-Font</Link>
 			<Link to="/myfont">My Font</Link>
+			<Link to="/infinite-pi">Infinite π</Link>
           </nav>
         </div>
       </header>
@@ -226,6 +227,9 @@ export default function Home() {
             </a>
             <Link className="project-link-chip" to="/fontmaker">
               Draw your own font in Draw-A-Font!
+            </Link>
+            <Link className="project-link-chip" to="/infinite-pi">
+              Explore irracionality in Infinite π!
             </Link>
           </div>
         </div>

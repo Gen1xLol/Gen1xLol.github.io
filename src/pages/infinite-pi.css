@@ -1,0 +1,280 @@
+body:has(.pi-page) {
+  background: #000;
+  overflow: hidden;
+}
+
+body:has(.pi-page)::before {
+  display: none;
+}
+
+.pi-page {
+  --pi-digit-size: clamp(2.35rem, 7.2vw, 5.8rem);
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate;
+  color: var(--text);
+  background: #000;
+  font-family: var(--font-ui), 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.pi-stars {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+
+header.pi-header {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 28px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.pi-brand {
+  color: var(--text);
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+}
+
+.pi-back {
+  color: var(--soft);
+  font-size: 0.86rem;
+}
+
+.pi-caption {
+  position: absolute;
+  z-index: 4;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #c77d91;
+  font-size: 0.82rem;
+  letter-spacing: 0.015em;
+  white-space: nowrap;
+}
+
+main.pi-stage {
+  position: fixed;
+  z-index: 1;
+  inset: 0;
+  display: block;
+  width: 100%;
+  max-width: none;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+  outline: none;
+}
+
+.pi-stage:active {
+  cursor: grabbing;
+}
+
+.pi-travel-layer {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  height: 100%;
+  transform: translate3d(var(--pi-shift), 0, 0);
+  will-change: transform;
+}
+
+.pi-number {
+  position: absolute;
+  top: 50%;
+  color: #f7f5fa;
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: var(--pi-digit-size);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.12;
+  white-space: pre;
+  transform: translateY(-50%);
+  text-shadow: 0 0 25px rgba(232, 225, 255, 0.08);
+}
+
+.pi-highlight {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  text-shadow: 0 0 13px rgba(196, 181, 253, 0.72);
+}
+
+.pi-fact {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  height: 100%;
+  pointer-events: none;
+}
+
+.pi-fact-text {
+  position: absolute;
+  left: 0;
+  width: min(350px, 36vw);
+  transform: translateX(-50%);
+  color: rgba(224, 219, 233, 0.65);
+  font-size: clamp(0.86rem, 1.5vw, 1.22rem);
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: center;
+  text-wrap: balance;
+  text-shadow: 0 2px 12px #000;
+}
+
+.pi-fact-above .pi-fact-text {
+  bottom: calc(50% + var(--pi-digit-size) * 0.62 + 2rem);
+}
+
+.pi-fact-below .pi-fact-text {
+  top: calc(50% + var(--pi-digit-size) * 0.62 + 2rem);
+}
+
+.pi-fact-about-pi .pi-fact-text {
+  color: rgba(196, 181, 253, 0.72);
+}
+
+.pi-fact-line {
+  position: absolute;
+  left: 50%;
+  width: calc(var(--pi-unit) * var(--pi-highlight-width, 2));
+  height: 1px;
+  background: rgba(196, 181, 253, 0.58);
+  transform: translateX(-50%);
+}
+
+.pi-fact-line::after {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #c4b5fd;
+  box-shadow: 0 0 10px rgba(196, 181, 253, 0.4);
+  content: '';
+  transform: translate(-50%, -50%);
+}
+
+.pi-fact-above .pi-fact-line {
+  top: calc(50% - var(--pi-digit-size) * 0.56);
+}
+
+.pi-fact-below .pi-fact-line {
+  top: calc(50% + var(--pi-digit-size) * 0.56);
+}
+
+.pi-status,
+.pi-hint {
+  position: absolute;
+  z-index: 4;
+  bottom: 24px;
+  color: rgba(170, 155, 189, 0.72);
+  font-size: 0.75rem;
+  letter-spacing: 0.025em;
+}
+
+.pi-status {
+  left: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pi-status:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 4px;
+}
+
+.pi-hint {
+  right: 28px;
+}
+
+.pi-last-digit {
+  position: absolute;
+  top: 50%;
+  width: 1px;
+  height: 1px;
+}
+
+.pi-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 640px) {
+  .pi-page {
+    --pi-digit-size: clamp(2.2rem, 11vw, 4rem);
+  }
+
+  header.pi-header {
+    padding: 14px 18px;
+  }
+
+  .pi-caption {
+    top: 60px;
+    font-size: 0.75rem;
+  }
+
+  .pi-fact-text {
+    width: min(240px, 48vw);
+    font-size: 0.83rem;
+    line-height: 1.32;
+  }
+
+  .pi-status,
+  .pi-hint {
+    bottom: max(18px, env(safe-area-inset-bottom));
+    font-size: 0.68rem;
+  }
+
+  .pi-status {
+    left: 18px;
+  }
+
+  .pi-hint {
+    right: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pi-travel-layer {
+    will-change: auto;
+  }
+}

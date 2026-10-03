@@ -1,5 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:ital,opsz,wght@0,14..32,300..800;1,14..32,400..600&display=swap');
 
+@font-face {
+  font-family: 'Gen1x Rough';
+  src: url('/assets/gen1x-rough.woff2') format('woff2'), url('/assets/gen1x-rough.ttf') format('truetype');
+  font-display: swap;
+}
+
 :root {
   --bg-deep: #1c142f;
   --bg-deep-2: #241a3b;
