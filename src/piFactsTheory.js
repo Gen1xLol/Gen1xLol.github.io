@@ -23,6 +23,8 @@ const FAMOUS = {
   256: '256 = 2⁸, so an unsigned 8-bit value has exactly 256 possibilities: 0 through 255.',
   314: '314 is what you get by multiplying π by 100 and dropping the decimals: 100π = 314.159...',
   365: 'A common year has 365 days; the extra quarter-day in Earth\'s orbit is why leap years are needed.',
+  28: '28 is both triangular (1 + 2 + ... + 7) and perfect: its proper divisors 1 + 2 + 4 + 7 + 14 add back up to 28.',
+  30: '30 = 1² + 2² + 3² + 4²: the sum of the first four squares is also five times six.',
   495: '495 is the 3-digit Kaprekar constant: sort a 3-digit number\'s digits high-to-low and low-to-high, subtract, and repeat; every number with at least two different digits reaches 495.',
   17: 'Gauss proved at 19 that a regular 17-gon can be built with compass and straightedge, and wanted one on his tombstone.',
   37: 'The 37% rule: in the secretary problem, skip the first 1/e ≈ 36.8% of candidates, then take the next one that beats them all.',
@@ -32,6 +34,7 @@ const FAMOUS = {
   64: '64 = 2⁶ = 4³ = 8²: the smallest number above 1 that is a perfect square, a cube and a sixth power at once.',
   89: '1/89 = 0.0112359550...: its digits hide the Fibonacci numbers 1, 1, 2, 3, 5, 8, 13, ... added up with overlapping shifts.',
   97: '97 is the largest two-digit prime, and 1/97 takes 96 digits to start repeating.',
+  100: '1³ + 2³ + 3³ + 4³ = 100. In fact, the sum of the first n cubes is always the square of the nth triangular number.',
   127: '127 = 2⁷ − 1 is a Mersenne prime; Lucas proved 2¹²⁷ − 1 prime by hand in 1876, a record that stood until computers in 1951.',
   137: '137 ≈ 1/α, the inverse of the fine-structure constant (137.036...), a number that haunted physicists like Pauli and Feynman.',
   144: '144 = 12² is the largest perfect square in the Fibonacci sequence; only 0, 1 and 144 are squares.',
@@ -49,6 +52,8 @@ const FAMOUS = {
   5777: '5,777 is one of only two known odd numbers (with 5,993) that are not a prime plus twice a square, breaking Goldbach\'s other conjecture.',
   5993: '5,993 is one of only two known odd numbers (with 5,777) that are not a prime plus twice a square, breaking Goldbach\'s other conjecture.',
   6174: '6,174 is Kaprekar\'s constant: rearrange any 4-digit number\'s digits big-to-small minus small-to-big, repeat, and you land here.',
+  625: '625 = 5⁴ = 25², so it is both a square and a fourth power.',
+  2025: '2,025 = 45² = 1³ + 2³ + ... + 9³: the first nine cubes add up to the square of 1 + 2 + ... + 9.',
   16843: '16,843 is one of only two known Wolstenholme primes (the other is 2,124,679).',
   19600: '19,600 = 140² is also the 48th tetrahedral number; only 1, 4 and 19,600 are both square and tetrahedral.',
   65537: '65,537 = 2¹⁶ + 1 is the largest known Fermat prime, so a regular 65,537-gon is constructible; Hermes spent about ten years on it.',
@@ -311,6 +316,32 @@ export const THEORY_FACTS = [
     if (c.prime || c.n < 4) return null
     const parts = sum(c.factors.map(([prime, exponent]) => exponent * digitSumOf(prime)))
     return parts === own ? `${c.f} is a Smith number: its digit sum ${own} equals the digit sums of its prime factors added up (named for a phone number, 4,937,775).` : null
+  }],
+  [5, c => {
+    const digitSum = digitSumOf(c.n)
+    return c.n % digitSum === 0 ? `${c.f} is a Harshad number: it divides evenly by the sum of its digits, ${digitSum}, giving ${c.n / digitSum}.` : null
+  }],
+  [5, c => {
+    let value = c.n
+    const path = [value]
+    const seen = new Set()
+    while (value !== 1 && !seen.has(value) && path.length < 30) {
+      seen.add(value)
+      value = [...String(value)].reduce((total, digit) => total + Number(digit) ** 2, 0)
+      path.push(value)
+    }
+    return value === 1 ? `${c.f} is a happy number: repeatedly square and add its digits, and the trail ${path.join(' → ')} ends at 1.` : null
+  }],
+  [4, c => {
+    if (c.length < 2 || !c.text.split('').every(digit => digit === c.text[0])) return null
+    const digit = Number(c.text[0])
+    const repunit = Number('1'.repeat(c.length))
+    return `${c.f} = ${digit} × ${repunit}: every repeated-digit number is its digit times a repunit.`
+  }],
+  [2, c => {
+    const reversed = Number(reverseText(c.text))
+    const difference = Math.abs(c.n - reversed)
+    return difference && difference % 9 === 0 ? `${c.f} and its reversal ${fmt(reversed)} differ by ${fmt(difference)}, a multiple of 9; reversing digits keeps the digit sum unchanged.` : null
   }],
   [5, c => {
     const terms = keithSequence(c)
