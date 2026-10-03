@@ -10,7 +10,12 @@ const FACT_SPACING = 34
 const FACT_CLUSTER_LENGTHS = [2, 3, 3, 4]
 const WINDOW_SIZE = 700
 const WINDOW_STEP = 128
-const SORTED_THEORY_FACTS = [...THEORY_FACTS].sort((left, right) => right[0] - left[0])
+const SORTED_THEORY_FACTS = THEORY_FACTS
+  .map(([weight, builder], type) => ({ weight, builder, type }))
+  .sort((left, right) => right.weight - left.weight)
+const RECENT_FACT_TYPES = []
+const FACT_TYPE_COOLDOWN = 5
+const FACT_PRIORITY_TOLERANCE = 2.5
 const digitPairStats = new Map()
 let digitPairStatsLength = 2
 
@@ -61,14 +66,21 @@ function theoryFactFor(pi, text, index = 0) {
     }, 1),
   }
 
-  let base = null
-  for (const [, builder] of SORTED_THEORY_FACTS) {
-    base = builder(context)
-    if (base) break
+  const matches = []
+  let highestWeight = -Infinity
+  for (const fact of SORTED_THEORY_FACTS) {
+    if (matches.length && fact.weight < highestWeight - FACT_PRIORITY_TOLERANCE) break
+    const text = fact.builder(context)
+    if (!text) continue
+    if (matches.length === 0) highestWeight = fact.weight
+    matches.push({ ...fact, text })
   }
-  if (!base) return null
-  if (text[0] !== text[1]) return base
-  return `${base} (at decimal position ${fmt(index + 1)}).`
+  if (!matches.length) return null
+  const selected = matches.find(fact => !RECENT_FACT_TYPES.includes(fact.type)) || matches[0]
+  RECENT_FACT_TYPES.push(selected.type)
+  if (RECENT_FACT_TYPES.length > FACT_TYPE_COOLDOWN) RECENT_FACT_TYPES.shift()
+  if (text[0] !== text[1]) return selected.text
+  return `${selected.text} (at decimal position ${fmt(index + 1)}).`
 }
 
 function makeDigitFact(pair, index, pi) {
