@@ -197,23 +197,58 @@ function Starfield({ velocityRef, offsetRef }) {
       uniform float u_scroll;
       uniform float u_drift;
       out float v_alpha;
+      out vec3 v_tint;
       void main() {
         float x = fract(a_position.x - u_scroll * 0.12 + u_time * 0.006 + u_drift * 0.09);
         float y = fract(a_position.y + u_time * 0.004 + u_drift * 0.015);
         vec2 position = vec2(x * u_resolution.x, y * u_resolution.y);
         vec2 clip = (position / u_resolution) * 2.0 - 1.0;
         gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
-        gl_PointSize = a_size * (1.0 + u_velocity * 0.25);
-        v_alpha = 0.26 + a_size * 0.14;
+        gl_PointSize = a_size * (1.15 + u_velocity * 0.25);
+        float twinkle = 0.82 + 0.18 * sin(u_time * 1.6 + a_position.x * 31.0 + a_position.y * 19.0);
+        v_alpha = (0.46 + a_size * 0.13) * twinkle;
+        float hue = fract(a_position.x * 0.7 + a_position.y * 0.45);
+        v_tint = mix(vec3(0.86, 0.89, 1.0), vec3(0.82, 0.77, 1.0), smoothstep(0.45, 0.9, hue));
+      }`
+    const backgroundVertexSource = `#version 300 es
+      const vec2 positions[3] = vec2[3](
+        vec2(-1.0, -1.0),
+        vec2(3.0, -1.0),
+        vec2(-1.0, 3.0)
+      );
+      void main() {
+        gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+      }`
+    const backgroundFragmentSource = `#version 300 es
+      precision mediump float;
+      uniform vec2 u_resolution;
+      out vec4 outColor;
+      float haze(vec2 point, vec2 center, vec2 spread) {
+        vec2 delta = (point - center) / spread;
+        return exp(-dot(delta, delta) * 1.8);
+      }
+      void main() {
+        vec2 point = gl_FragCoord.xy / u_resolution;
+        point.x *= u_resolution.x / u_resolution.y;
+        vec3 color = vec3(0.004, 0.006, 0.018);
+        color += vec3(0.018, 0.032, 0.085) * haze(point, vec2(0.2, 0.78), vec2(0.48, 0.3));
+        color += vec3(0.055, 0.018, 0.09) * haze(point, vec2(0.92, 0.52), vec2(0.42, 0.34));
+        color += vec3(0.008, 0.048, 0.065) * haze(point, vec2(0.59, 0.12), vec2(0.34, 0.2));
+        float vignette = 1.0 - smoothstep(0.12, 1.25, length((point - vec2(0.5 * u_resolution.x / u_resolution.y, 0.5)) * vec2(0.7, 0.9)));
+        color *= 0.58 + vignette * 0.42;
+        outColor = vec4(color, 1.0);
       }`
     const fragmentSource = `#version 300 es
       precision mediump float;
       in float v_alpha;
+      in vec3 v_tint;
       out vec4 outColor;
       void main() {
         vec2 point = gl_PointCoord - vec2(0.5);
-        float glow = 1.0 - smoothstep(0.18, 0.5, length(point));
-        outColor = vec4(0.84, 0.82, 0.92, glow * v_alpha);
+        float distanceFromCenter = length(point);
+        float glow = 1.0 - smoothstep(0.12, 0.5, distanceFromCenter);
+        float core = 1.0 - smoothstep(0.0, 0.16, distanceFromCenter);
+        outColor = vec4(mix(v_tint, vec3(1.0), core * 0.48), glow * v_alpha);
       }`
 
     function compile(type, source) {
@@ -229,22 +264,52 @@ function Starfield({ velocityRef, offsetRef }) {
 
     const vertexShader = compile(gl.VERTEX_SHADER, vertexSource)
     const fragmentShader = compile(gl.FRAGMENT_SHADER, fragmentSource)
-    if (!vertexShader || !fragmentShader) return undefined
+    const backgroundVertexShader = compile(gl.VERTEX_SHADER, backgroundVertexSource)
+    const backgroundFragmentShader = compile(gl.FRAGMENT_SHADER, backgroundFragmentSource)
+    if (!vertexShader || !fragmentShader || !backgroundVertexShader || !backgroundFragmentShader) return undefined
     const program = gl.createProgram()
     gl.attachShader(program, vertexShader)
     gl.attachShader(program, fragmentShader)
     gl.linkProgram(program)
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return undefined
     gl.useProgram(program)
+    const backgroundProgram = gl.createProgram()
+    gl.attachShader(backgroundProgram, backgroundVertexShader)
+    gl.attachShader(backgroundProgram, backgroundFragmentShader)
+    gl.linkProgram(backgroundProgram)
+    if (!gl.getProgramParameter(backgroundProgram, gl.LINK_STATUS)) return undefined
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
-    const stars = new Float32Array(180 * 3)
+    const starCount = 220
+    const stars = new Float32Array(starCount * 3)
     let seed = 841
-    for (let i = 0; i < 180; i += 1) {
+    const starPositions = []
+    const minimumStarDistance = 0.026
+    for (let i = 0; i < starCount; i += 1) {
+      let x = 0
+      let y = 0
+      let attempts = 0
+      let separated = false
+      while (!separated && attempts < 80) {
+        seed = (seed * 16807) % 2147483647
+        x = seed / 2147483647
+        seed = (seed * 16807) % 2147483647
+        y = seed / 2147483647
+        separated = starPositions.every(([otherX, otherY]) => {
+          const deltaX = Math.abs(x - otherX)
+          const deltaY = Math.abs(y - otherY)
+          const horizontalDistance = Math.min(deltaX, 1 - deltaX) * Math.max(0.65, window.innerWidth / window.innerHeight)
+          const verticalDistance = Math.min(deltaY, 1 - deltaY)
+          return horizontalDistance ** 2 + verticalDistance ** 2 >= minimumStarDistance ** 2
+        })
+        attempts += 1
+      }
+      starPositions.push([x, y])
+      stars[i * 3] = x
+      stars[i * 3 + 1] = y
       seed = (seed * 16807) % 2147483647
-      stars[i * 3] = seed / 2147483647
-      seed = (seed * 16807) % 2147483647
-      stars[i * 3 + 1] = seed / 2147483647
-      stars[i * 3 + 2] = 0.7 + (seed / 2147483647) * 1.8
+      stars[i * 3 + 2] = 0.9 + (seed / 2147483647) * 1.45
     }
     const buffer = gl.createBuffer()
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
@@ -260,6 +325,7 @@ function Starfield({ velocityRef, offsetRef }) {
     const velocityUniform = gl.getUniformLocation(program, 'u_velocity')
     const scrollUniform = gl.getUniformLocation(program, 'u_scroll')
     const driftUniform = gl.getUniformLocation(program, 'u_drift')
+    const backgroundResolution = gl.getUniformLocation(backgroundProgram, 'u_resolution')
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     let frame = 0
     let start = performance.now()
@@ -285,12 +351,16 @@ function Starfield({ velocityRef, offsetRef }) {
       if (!reducedMotion) accumulatedDrift += velocityRef.current * frameElapsed
       gl.clearColor(0, 0, 0, 1)
       gl.clear(gl.COLOR_BUFFER_BIT)
+      gl.useProgram(backgroundProgram)
+      gl.uniform2f(backgroundResolution, canvas.width, canvas.height)
+      gl.drawArrays(gl.TRIANGLES, 0, 3)
+      gl.useProgram(program)
       gl.uniform2f(resolution, canvas.width, canvas.height)
       gl.uniform1f(timeUniform, elapsed)
       gl.uniform1f(velocityUniform, reducedMotion ? 0 : velocityRef.current)
       gl.uniform1f(scrollUniform, reducedMotion ? 0 : offsetRef.current / Math.max(1, window.innerWidth))
       gl.uniform1f(driftUniform, reducedMotion ? 0 : accumulatedDrift)
-      gl.drawArrays(gl.POINTS, 0, 180)
+      gl.drawArrays(gl.POINTS, 0, 220)
       frame = requestAnimationFrame(render)
     }
 
@@ -301,8 +371,11 @@ function Starfield({ velocityRef, offsetRef }) {
       window.removeEventListener('resize', resize)
       gl.deleteBuffer(buffer)
       gl.deleteProgram(program)
+      gl.deleteProgram(backgroundProgram)
       gl.deleteShader(vertexShader)
       gl.deleteShader(fragmentShader)
+      gl.deleteShader(backgroundVertexShader)
+      gl.deleteShader(backgroundFragmentShader)
     }
   }, [velocityRef, offsetRef])
 
