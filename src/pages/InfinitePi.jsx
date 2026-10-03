@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Volume2, VolumeX } from 'lucide-react'
 import { factorize, fmt, isPrimeNumber } from '../piMath.js'
 import { THEORY_FACTS } from '../piFactsTheory.js'
 import './infinite-pi.css'
@@ -384,6 +385,79 @@ function Starfield({ velocityRef, offsetRef }) {
 
 const STORAGE_KEY = 'infinite-pi-position'
 const LEGACY_STORAGE_KEY = 'infinite-pi-offset'
+const SOUND_STORAGE_KEY = 'infinite-pi-sound'
+
+function createAmbientAudio() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext
+  if (!AudioContextClass) return null
+  const context = new AudioContextClass()
+  const buffer = context.createBuffer(1, context.sampleRate * 2, context.sampleRate)
+  const samples = buffer.getChannelData(0)
+  let previous = 0
+  for (let index = 0; index < samples.length; index += 1) {
+    const noise = Math.random() * 2 - 1
+    previous = previous * 0.86 + noise * 0.14
+    samples[index] = previous
+  }
+  const source = context.createBufferSource()
+  source.buffer = buffer
+  source.loop = true
+
+  const highPass = context.createBiquadFilter()
+  highPass.type = 'highpass'
+  highPass.frequency.value = 48
+  const air = context.createBiquadFilter()
+  air.type = 'bandpass'
+  air.frequency.value = 130
+  air.Q.value = 0.28
+  const airGain = context.createGain()
+  airGain.gain.value = 0
+  const lowPass = context.createBiquadFilter()
+  lowPass.type = 'lowpass'
+  lowPass.frequency.value = 110
+  const lowGain = context.createGain()
+  lowGain.gain.value = 0
+  const convolver = context.createConvolver()
+  const impulseLength = Math.floor(context.sampleRate * 3)
+  const impulse = context.createBuffer(2, impulseLength, context.sampleRate)
+  for (let channel = 0; channel < impulse.numberOfChannels; channel += 1) {
+    const impulseSamples = impulse.getChannelData(channel)
+    for (let index = 0; index < impulseLength; index += 1) {
+      const decay = (1 - index / impulseLength) ** 4
+      impulseSamples[index] = (Math.random() * 2 - 1) * decay
+    }
+  }
+  convolver.buffer = impulse
+  const reverbGain = context.createGain()
+  reverbGain.gain.value = 0.08
+  const masterLowPass = context.createBiquadFilter()
+  masterLowPass.type = 'lowpass'
+  masterLowPass.frequency.value = 210
+  masterLowPass.Q.value = 0.35
+  const drift = context.createOscillator()
+  drift.frequency.value = 0.08
+  const driftDepth = context.createGain()
+  driftDepth.gain.value = 34
+
+  source.connect(highPass)
+  highPass.connect(air)
+  air.connect(airGain)
+  airGain.connect(masterLowPass)
+  source.connect(lowPass)
+  lowPass.connect(lowGain)
+  lowGain.connect(masterLowPass)
+  lowPass.connect(convolver)
+  convolver.connect(reverbGain)
+  reverbGain.connect(masterLowPass)
+  masterLowPass.connect(context.destination)
+  drift.connect(driftDepth)
+  driftDepth.connect(air.frequency)
+  source.start()
+  drift.start()
+  context.resume()
+
+  return { context, source, drift, air, airGain, lowPass, lowGain, reverbGain }
+}
 
 export default function InfinitePi() {
   const [digits, setDigits] = useState('3.')
@@ -391,6 +465,13 @@ export default function InfinitePi() {
   const [offset, setOffset] = useState(0)
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight })
   const [generating, setGenerating] = useState(true)
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    try {
+      return window.localStorage.getItem(SOUND_STORAGE_KEY) === 'true'
+    } catch {
+      return false
+    }
+  })
   const [activeFacts, setActiveFacts] = useState([])
   const workerRef = useRef(null)
   const updateOffsetRef = useRef(() => {})
@@ -411,6 +492,10 @@ export default function InfinitePi() {
   const ensureDigitsRef = useRef(() => {})
   const queuedOffsetRef = useRef(null)
   const saveOffsetRef = useRef(null)
+  const audioEngineRef = useRef(null)
+  const ambientIntensityRef = useRef(0)
+  const soundEnabledRef = useRef(soundEnabled)
+  soundEnabledRef.current = soundEnabled
 
   const persistOffset = useCallback(() => {
     if (typeof window === 'undefined') return
@@ -514,6 +599,52 @@ export default function InfinitePi() {
     if (Number.isFinite(restored)) updateOffsetRef.current(restored * unitRef.current)
   }, [])
 
+  useEffect(() => () => {
+    const engine = audioEngineRef.current
+    if (!engine) return
+    engine.source.stop()
+    engine.drift.stop()
+    engine.context.close()
+    audioEngineRef.current = null
+  }, [])
+
+  useEffect(() => {
+    const engine = audioEngineRef.current
+    if (!soundEnabled) {
+      if (!engine) return undefined
+      const now = engine.context.currentTime
+      engine.airGain.gain.setTargetAtTime(0, now, 0.09)
+      engine.lowGain.gain.setTargetAtTime(0, now, 0.09)
+      engine.reverbGain.gain.setTargetAtTime(0, now, 0.09)
+      return undefined
+    }
+
+    let frame = 0
+    const updateAmbientSound = time => {
+      const currentEngine = audioEngineRef.current
+      if (currentEngine?.context.state === 'running') {
+        const intensity = ambientIntensityRef.current
+        const now = currentEngine.context.currentTime
+        currentEngine.air.frequency.setTargetAtTime(105 + intensity * 70, now, 0.025)
+        currentEngine.lowPass.frequency.setTargetAtTime(85 + intensity * 55, now, 0.03)
+        currentEngine.airGain.gain.setTargetAtTime(0.008 + intensity ** 0.85 * 0.03, now, 0.025)
+        currentEngine.lowGain.gain.setTargetAtTime(0.015 + intensity ** 0.9 * 0.033, now, 0.03)
+        currentEngine.reverbGain.gain.setTargetAtTime(0.09 + intensity * 0.04, now, 0.05)
+      }
+      frame = requestAnimationFrame(updateAmbientSound)
+    }
+    frame = requestAnimationFrame(updateAmbientSound)
+    return () => {
+      cancelAnimationFrame(frame)
+      const currentEngine = audioEngineRef.current
+      if (!currentEngine) return
+      const now = currentEngine.context.currentTime
+      currentEngine.airGain.gain.setTargetAtTime(0, now, 0.09)
+      currentEngine.lowGain.gain.setTargetAtTime(0, now, 0.09)
+      currentEngine.reverbGain.gain.setTargetAtTime(0, now, 0.12)
+    }
+  }, [soundEnabled])
+
   useEffect(() => {
     const saveOnPageHide = () => persistOffset()
     window.addEventListener('pagehide', saveOnPageHide)
@@ -550,6 +681,8 @@ export default function InfinitePi() {
       const currentUnit = unitRef.current
       const speed = Math.min(1, Math.abs(offsetRef.current - previousOffset) / elapsed * 1000 / 1400)
       velocityRef.current += (speed - velocityRef.current) * (1 - Math.exp(-elapsed / 150))
+      const ambientResponse = 1 - Math.exp(-elapsed / (speed > ambientIntensityRef.current ? 32 : 115))
+      ambientIntensityRef.current += (speed - ambientIntensityRef.current) * ambientResponse
       const observedDigitsPerSecond = Math.abs(offsetRef.current - previousOffset) / elapsed * 1000 / currentUnit
       scrollDigitsPerSecondRef.current += (observedDigitsPerSecond - scrollDigitsPerSecondRef.current) * (1 - Math.exp(-elapsed / 250))
       previousOffset = offsetRef.current
@@ -586,6 +719,7 @@ export default function InfinitePi() {
 
   function handleWheel(event) {
     event.preventDefault()
+    activateAmbientSound()
     const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
     updateOffset((queuedOffsetRef.current ?? targetOffsetRef.current) + delta)
   }
@@ -602,6 +736,7 @@ export default function InfinitePi() {
   function handlePointerDown(event) {
     if (event.target instanceof Element && event.target.closest('button, a, input, textarea, select')) return
     if (event.pointerType === 'mouse' && event.button !== 0) return
+    activateAmbientSound()
     draggingRef.current = {
       x: event.clientX,
       offset: offsetRef.current,
@@ -626,16 +761,46 @@ export default function InfinitePi() {
   function handleKeyDown(event) {
     if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
       event.preventDefault()
+      activateAmbientSound()
       updateOffset((queuedOffsetRef.current ?? targetOffsetRef.current) + (event.key === 'ArrowRight' ? 80 : -80))
     } else if (event.key === 'Home') updateOffset(0)
     if (event.key === 'ArrowRight' || event.key === 'ArrowLeft' || event.key === 'Home') persistOffset()
+  }
+
+  function handleSoundToggle() {
+    const next = !soundEnabled
+    if (next) activateAmbientSound(true)
+    setSoundEnabled(next)
+    try {
+      window.localStorage.setItem(SOUND_STORAGE_KEY, String(next))
+    } catch {
+      return
+    }
+  }
+
+  function activateAmbientSound(force = false) {
+    if (!force && !soundEnabledRef.current) return
+    if (!audioEngineRef.current) audioEngineRef.current = createAmbientAudio()
+    else audioEngineRef.current.context.resume()
   }
 
   return (
     <div className="pi-page">
       <Starfield velocityRef={velocityRef} offsetRef={offsetRef} />
       <header className="pi-header">
-        <Link className="pi-brand" to="/">gen1x</Link>
+        <div className="pi-brand-tools">
+          <Link className="pi-brand" to="/">gen1x</Link>
+          <button
+            className="pi-sound-toggle"
+            type="button"
+            aria-label={soundEnabled ? 'Turn ambient sound off' : 'Turn ambient sound on'}
+            aria-pressed={soundEnabled}
+            title={soundEnabled ? 'Turn ambient sound off' : 'Turn ambient sound on'}
+            onClick={handleSoundToggle}
+          >
+            {soundEnabled ? <Volume2 size={16} strokeWidth={1.8} /> : <VolumeX size={16} strokeWidth={1.8} />}
+          </button>
+        </div>
         <Link className="pi-back" to="/">back to the site</Link>
       </header>
       <div className="pi-caption">a little trip through π</div>

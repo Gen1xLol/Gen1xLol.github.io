@@ -44,11 +44,44 @@ header.pi-header {
   -webkit-backdrop-filter: none;
 }
 
+.pi-brand-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .pi-brand {
   color: var(--text);
   font-weight: 700;
   font-size: 1.05rem;
   letter-spacing: 0.01em;
+}
+
+.pi-sound-toggle {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid rgba(196, 181, 253, 0.22);
+  border-radius: 50%;
+  color: rgba(205, 196, 226, 0.72);
+  background: rgba(13, 11, 25, 0.46);
+  cursor: pointer;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.pi-sound-toggle:hover,
+.pi-sound-toggle[aria-pressed='true'] {
+  border-color: rgba(196, 181, 253, 0.62);
+  color: #ded5ff;
+  background: rgba(49, 38, 78, 0.56);
+  box-shadow: 0 0 14px rgba(155, 130, 255, 0.14);
+}
+
+.pi-sound-toggle:focus-visible {
+  outline: 1px solid #c4b5fd;
+  outline-offset: 3px;
 }
 
 .pi-back {
