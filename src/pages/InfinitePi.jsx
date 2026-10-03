@@ -4,7 +4,7 @@ import { factorize, fmt, isPrimeNumber } from '../piMath.js'
 import { THEORY_FACTS } from '../piFactsTheory.js'
 import './infinite-pi.css'
 
-const INITIAL_DIGITS = 512
+const INITIAL_DIGITS = 2048
 const TOUCH_DRAG_MULTIPLIER = 1.2
 const FACT_SPACING = 34
 const FACT_CLUSTER_LENGTHS = [2, 3, 3, 4]
@@ -382,7 +382,8 @@ function Starfield({ velocityRef, offsetRef }) {
   return <canvas ref={canvasRef} className="pi-stars" aria-hidden="true" />
 }
 
-const STORAGE_KEY = 'infinite-pi-offset'
+const STORAGE_KEY = 'infinite-pi-position'
+const LEGACY_STORAGE_KEY = 'infinite-pi-offset'
 
 export default function InfinitePi() {
   const [digits, setDigits] = useState('3.')
@@ -404,11 +405,17 @@ export default function InfinitePi() {
   const velocityRef = useRef(0)
   const draggingRef = useRef(null)
   const requestedRef = useRef(INITIAL_DIGITS)
+  const generationInFlightRef = useRef(true)
+  const generationTimingRef = useRef({ digits: 0, milliseconds: 0 })
+  const scrollDigitsPerSecondRef = useRef(0)
+  const ensureDigitsRef = useRef(() => {})
+  const queuedOffsetRef = useRef(null)
   const saveOffsetRef = useRef(null)
 
   const persistOffset = useCallback(() => {
     if (typeof window === 'undefined') return
-    const value = Math.round(targetOffsetRef.current)
+    const position = queuedOffsetRef.current ?? targetOffsetRef.current
+    const value = Math.max(0, Math.round(position / Math.max(1, unitRef.current)))
     window.localStorage.setItem(STORAGE_KEY, String(value))
   }, [])
 
@@ -426,7 +433,10 @@ export default function InfinitePi() {
 
   const updateOffset = useCallback(next => {
     const currentUnit = unitRef.current
-    const maxOffset = Math.max(0, (digits.length - 1) * currentUnit - viewportRef.current.width + 72)
+    const maxOffset = Math.max(0, (digitsLengthRef.current - 1) * currentUnit - viewportRef.current.width + 72)
+    const requested = Math.max(0, next)
+    if (requested > maxOffset) queuedOffsetRef.current = requested
+    else queuedOffsetRef.current = null
     const bounded = Math.max(0, Math.min(next, maxOffset))
     targetOffsetRef.current = bounded
     clearTimeout(saveOffsetRef.current)
@@ -434,16 +444,29 @@ export default function InfinitePi() {
       persistOffset()
     }, 160)
 
-    const nearEnd = bounded + viewportRef.current.width * 2 > (digits.length - 1) * currentUnit
-    if (nearEnd && !generating && workerRef.current && requestedRef.current <= digits.length - 2) {
-      const target = requestedRef.current * 2
-      requestedRef.current = target
-      setGenerating(true)
-      workerRef.current.postMessage({ decimalPlaces: target })
-    }
-  }, [digits, generating, persistOffset])
+    ensureDigitsRef.current(queuedOffsetRef.current ?? bounded)
+  }, [persistOffset])
   updateOffsetRef.current = updateOffset
   factsRef.current = facts
+  ensureDigitsRef.current = position => {
+    if (generationInFlightRef.current || !workerRef.current || requestedRef.current > digitsLengthRef.current - 2) return
+    const currentUnit = Math.max(1, unitRef.current)
+    const visibleDigits = viewportRef.current.width / currentUnit
+    const positionDigits = Math.max(position, offsetRef.current) / currentUnit
+    const availableDigits = digitsLengthRef.current - 2
+    const remainingDigits = availableDigits - positionDigits - visibleDigits
+    const nextTarget = requestedRef.current * 2
+    const timing = generationTimingRef.current
+    const estimatedMilliseconds = timing.digits
+      ? timing.milliseconds * (nextTarget / timing.digits) ** 1.45
+      : 750
+    const timeBuffer = scrollDigitsPerSecondRef.current * Math.max(750, estimatedMilliseconds * 2.5) / 1000
+    const safetyBuffer = Math.max(visibleDigits * 12, timeBuffer)
+    if (remainingDigits > safetyBuffer) return
+    requestedRef.current = nextTarget
+    generationInFlightRef.current = true
+    workerRef.current.postMessage({ decimalPlaces: nextTarget })
+  }
 
   useEffect(() => {
     const worker = new Worker(new URL('./piDigits.worker.js', import.meta.url), { type: 'module' })
@@ -452,12 +475,20 @@ export default function InfinitePi() {
       const nextDigits = event.data.pi
       const previousLength = digitsLengthRef.current
       digitsLengthRef.current = nextDigits.length
+      generationTimingRef.current = {
+        digits: event.data.decimalPlaces,
+        milliseconds: event.data.elapsedMilliseconds,
+      }
+      generationInFlightRef.current = false
       setDigits(nextDigits)
       setFacts(previous => [...previous, ...buildFacts(nextDigits, previousLength)])
-      setGenerating(false)
-      requestAnimationFrame(() => updateOffsetRef.current(offsetRef.current))
+      if (previousLength <= 2) setGenerating(false)
+      requestAnimationFrame(() => updateOffsetRef.current(queuedOffsetRef.current ?? offsetRef.current))
     }
-    worker.onerror = () => setGenerating(false)
+    worker.onerror = () => {
+      generationInFlightRef.current = false
+      setGenerating(false)
+    }
     worker.postMessage({ decimalPlaces: INITIAL_DIGITS })
     return () => {
       worker.terminate()
@@ -473,16 +504,14 @@ export default function InfinitePi() {
   }, [measureUnit])
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY)
-    if (stored !== null) {
-      const restored = Number.parseFloat(stored)
-      if (Number.isFinite(restored)) {
-        const safe = Math.max(0, restored)
-        offsetRef.current = safe
-        targetOffsetRef.current = safe
-        setOffset(safe)
-      }
-    }
+    const storedPosition = window.localStorage.getItem(STORAGE_KEY)
+    const storedOffset = storedPosition === null ? window.localStorage.getItem(LEGACY_STORAGE_KEY) : null
+    const restored = storedPosition !== null
+      ? Number.parseFloat(storedPosition)
+      : storedOffset !== null
+        ? Number.parseFloat(storedOffset) / Math.max(1, unitRef.current)
+        : null
+    if (Number.isFinite(restored)) updateOffsetRef.current(restored * unitRef.current)
   }, [])
 
   useEffect(() => {
@@ -518,12 +547,15 @@ export default function InfinitePi() {
       const target = targetOffsetRef.current
       const next = current + (target - current) * (1 - Math.exp(-elapsed / 95))
       offsetRef.current = Math.abs(target - next) < 0.15 ? target : next
+      const currentUnit = unitRef.current
       const speed = Math.min(1, Math.abs(offsetRef.current - previousOffset) / elapsed * 1000 / 1400)
       velocityRef.current += (speed - velocityRef.current) * (1 - Math.exp(-elapsed / 150))
+      const observedDigitsPerSecond = Math.abs(offsetRef.current - previousOffset) / elapsed * 1000 / currentUnit
+      scrollDigitsPerSecondRef.current += (observedDigitsPerSecond - scrollDigitsPerSecondRef.current) * (1 - Math.exp(-elapsed / 250))
       previousOffset = offsetRef.current
+      ensureDigitsRef.current(Math.max(offsetRef.current, targetOffsetRef.current))
       if (stageRef.current) stageRef.current.style.setProperty('--pi-shift', `${28 - offsetRef.current}px`)
 
-      const currentUnit = unitRef.current
       const windowIndex = Math.floor(offsetRef.current / currentUnit / WINDOW_STEP)
       if (windowIndex !== lastWindow) {
         lastWindow = windowIndex
@@ -555,7 +587,7 @@ export default function InfinitePi() {
   function handleWheel(event) {
     event.preventDefault()
     const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
-    updateOffset(targetOffsetRef.current + delta)
+    updateOffset((queuedOffsetRef.current ?? targetOffsetRef.current) + delta)
   }
   wheelHandlerRef.current = handleWheel
 
@@ -594,7 +626,7 @@ export default function InfinitePi() {
   function handleKeyDown(event) {
     if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
       event.preventDefault()
-      updateOffset(targetOffsetRef.current + (event.key === 'ArrowRight' ? 80 : -80))
+      updateOffset((queuedOffsetRef.current ?? targetOffsetRef.current) + (event.key === 'ArrowRight' ? 80 : -80))
     } else if (event.key === 'Home') updateOffset(0)
     if (event.key === 'ArrowRight' || event.key === 'ArrowLeft' || event.key === 'Home') persistOffset()
   }

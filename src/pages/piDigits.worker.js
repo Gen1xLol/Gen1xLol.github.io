@@ -62,7 +62,8 @@ function calculatePi(decimalPlaces) {
 }
 
 self.onmessage = (event) => {
+  const startedAt = performance.now()
   const decimalPlaces = Math.max(512, Math.floor(event.data.decimalPlaces))
   const pi = calculatePi(decimalPlaces)
-  self.postMessage({ decimalPlaces, pi })
+  self.postMessage({ decimalPlaces, pi, elapsedMilliseconds: performance.now() - startedAt })
 }
