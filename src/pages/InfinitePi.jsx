@@ -5,6 +5,7 @@ import { THEORY_FACTS } from '../piFactsTheory.js'
 import './infinite-pi.css'
 
 const INITIAL_DIGITS = 512
+const TOUCH_DRAG_MULTIPLIER = 1.2
 const FACT_SPACING = 34
 const FACT_CLUSTER_LENGTHS = [2, 3, 3, 4]
 const WINDOW_SIZE = 700
@@ -484,13 +485,20 @@ export default function InfinitePi() {
   function handlePointerDown(event) {
     if (event.target instanceof Element && event.target.closest('button, a, input, textarea, select')) return
     if (event.pointerType === 'mouse' && event.button !== 0) return
-    draggingRef.current = { x: event.clientX, offset: offsetRef.current }
+    draggingRef.current = {
+      x: event.clientX,
+      offset: offsetRef.current,
+      multiplier: event.pointerType === 'touch' ? TOUCH_DRAG_MULTIPLIER : 1,
+    }
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
   function handlePointerMove(event) {
     if (!draggingRef.current) return
-    updateOffset(draggingRef.current.offset + draggingRef.current.x - event.clientX)
+    updateOffset(
+      draggingRef.current.offset +
+        (draggingRef.current.x - event.clientX) * draggingRef.current.multiplier,
+    )
   }
 
   function handlePointerUp() {
