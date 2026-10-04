@@ -201,9 +201,8 @@ function Starfield({ velocityRef, offsetRef }) {
       out float v_alpha;
       out vec3 v_tint;
       void main() {
-        float depth = a_layer * 0.5;
-        float x = fract(a_position.x - u_scroll * (0.035 + depth * 0.105) + u_time * (0.003 + depth * 0.005) + u_drift * (0.04 + depth * 0.1));
-        float y = fract(a_position.y + u_time * (0.002 + depth * 0.003) + u_drift * (0.008 + depth * 0.02));
+        float x = fract(a_position.x - u_scroll * (0.035 + a_layer * 0.105) + u_time * (0.003 + a_layer * 0.005) + u_drift * (0.04 + a_layer * 0.1));
+        float y = fract(a_position.y + u_time * (0.002 + a_layer * 0.003) + u_drift * (0.008 + a_layer * 0.02));
         vec2 position = vec2(x * u_resolution.x, y * u_resolution.y);
         vec2 clip = (position / u_resolution) * 2.0 - 1.0;
         gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
@@ -214,7 +213,8 @@ function Starfield({ velocityRef, offsetRef }) {
         vec3 farTint = vec3(0.62, 0.77, 1.0);
         vec3 middleTint = mix(vec3(0.78, 0.78, 1.0), vec3(0.72, 0.84, 1.0), smoothstep(0.45, 0.9, hue));
         vec3 nearTint = mix(vec3(0.96, 0.89, 1.0), vec3(1.0, 0.9, 0.78), smoothstep(0.45, 0.9, hue));
-        v_tint = a_layer < 1.0 ? mix(farTint, middleTint, a_layer) : mix(middleTint, nearTint, a_layer - 1.0);
+        vec3 depthTint = mix(farTint, middleTint, smoothstep(0.0, 0.55, a_layer));
+        v_tint = mix(depthTint, nearTint, smoothstep(0.45, 1.0, a_layer));
       }`
     const backgroundVertexSource = `#version 300 es
       const vec2 positions[3] = vec2[3](
@@ -312,12 +312,12 @@ function Starfield({ velocityRef, offsetRef }) {
         attempts += 1
       }
       starPositions.push([x, y])
-      const layer = i < 110 ? 0 : i < 180 ? 1 : 2
       stars[i * 4] = x
       stars[i * 4 + 1] = y
       seed = (seed * 16807) % 2147483647
-      const sizeRange = layer === 0 ? [0.55, 0.95] : layer === 1 ? [0.9, 1.35] : [1.2, 1.8]
-      stars[i * 4 + 2] = sizeRange[0] + (seed / 2147483647) * sizeRange[1]
+      const layer = seed / 2147483647
+      seed = (seed * 16807) % 2147483647
+      stars[i * 4 + 2] = 0.55 + layer * 1.35 + (seed / 2147483647) * (0.35 + layer * 0.35)
       stars[i * 4 + 3] = layer
     }
     const buffer = gl.createBuffer()
@@ -329,9 +329,9 @@ function Starfield({ velocityRef, offsetRef }) {
     gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 16, 0)
     gl.enableVertexAttribArray(size)
     gl.vertexAttribPointer(size, 1, gl.FLOAT, false, 16, 8)
-    const layer = gl.getAttribLocation(program, 'a_layer')
-    gl.enableVertexAttribArray(layer)
-    gl.vertexAttribPointer(layer, 1, gl.FLOAT, false, 16, 12)
+    const layerAttribute = gl.getAttribLocation(program, 'a_layer')
+    gl.enableVertexAttribArray(layerAttribute)
+    gl.vertexAttribPointer(layerAttribute, 1, gl.FLOAT, false, 16, 12)
     const resolution = gl.getUniformLocation(program, 'u_resolution')
     const timeUniform = gl.getUniformLocation(program, 'u_time')
     const velocityUniform = gl.getUniformLocation(program, 'u_velocity')
