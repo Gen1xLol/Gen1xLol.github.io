@@ -508,9 +508,8 @@ export default function InfinitePi() {
   const soundEnabledRef = useRef(soundEnabled)
   soundEnabledRef.current = soundEnabled
 
-  const persistOffset = useCallback(() => {
+  const persistOffset = useCallback((position = queuedOffsetRef.current ?? targetOffsetRef.current) => {
     if (typeof window === 'undefined') return
-    const position = queuedOffsetRef.current ?? targetOffsetRef.current
     const value = Math.max(0, Math.round(position / Math.max(1, unitRef.current)))
     window.localStorage.setItem(STORAGE_KEY, String(value))
   }, [])
@@ -681,6 +680,7 @@ export default function InfinitePi() {
     let previousOffset = offsetRef.current
     let lastWindow = -1
     let lastCounter = -1
+    let lastScrollSave = 0
     let lastFactSet = ''
     const animate = time => {
       const elapsed = Math.min(48, Math.max(1, time - previousTime))
@@ -709,6 +709,10 @@ export default function InfinitePi() {
       if (counter !== lastCounter) {
         lastCounter = counter
         setOffset(offsetRef.current)
+        if (counter > 0 && time - lastScrollSave >= 500) {
+          lastScrollSave = time
+          persistOffset(queuedOffsetRef.current ?? offsetRef.current)
+        }
       }
       const first = findFactStart(factsRef.current, Math.floor((offsetRef.current + viewportRef.current.width / 2 - 28) / currentUnit) - 2)
       const selected = factsRef.current.slice(Math.max(0, first - 2), first + 4)
@@ -721,7 +725,7 @@ export default function InfinitePi() {
     }
     frame = requestAnimationFrame(animate)
     return () => cancelAnimationFrame(frame)
-  }, [])
+  }, [persistOffset])
 
   const unit = unitRef.current
   const base = Math.floor(offset / unit / WINDOW_STEP) * WINDOW_STEP
