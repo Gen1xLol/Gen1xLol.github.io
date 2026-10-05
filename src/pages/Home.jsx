@@ -231,6 +231,10 @@ export default function Home() {
             <Link className="project-link-chip" to="/infinite-pi">
               Explore irracionality in Infinite π!
             </Link>
+            <a className="project-link-chip" href="https://gen1xlol.github.io/Stupid-Wordle" target="_blank" rel="noopener">
+              <ExternalLink size={16} />
+              Check out Stupid Wordle!
+            </a>
           </div>
         </div>
 
