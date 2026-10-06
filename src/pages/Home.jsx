@@ -130,10 +130,10 @@ export default function Home() {
           <a className="site-name" href="#">gen1x</a>
           <nav>
             <Link to="/88x31">88x31</Link>
-		      	<a href="https://gen1xlol.github.io/Jarona-TTS" target="_blank" rel="noopener">Jarona TTS</a>
-		      	<Link to="/fontmaker">Draw-A-Font</Link>
-		      	<Link to="/myfont">My Font</Link>
-			      <Link to="/infinite-pi">Infinite π</Link>
+            <a href="https://gen1xlol.github.io/Jarona-TTS" target="_blank" rel="noopener">Jarona TTS</a>
+            <Link to="/fontmaker">Draw-A-Font</Link>
+            <Link to="/myfont">My Font</Link>
+            <Link to="/infinite-pi">Infinite π</Link>
             <a href="https://gen1xlol.github.io/Stupid-Wordle" target="_blank" rel="noopener">Stupid Wordle</a>
           </nav>
         </div>
