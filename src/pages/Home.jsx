@@ -14,6 +14,31 @@ const EXT_GRID_GAP = 12
 const EXT_CARD_ASPECT = 9 / 16
 const EXT_CARD_COL_SPAN = 2
 
+function shinyCardEffect(event) {
+  if (event.pointerType !== 'mouse' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+  const card = event.currentTarget
+  const rect = card.getBoundingClientRect()
+  const x = (event.clientX - rect.left) / rect.width - 0.5
+  const y = (event.clientY - rect.top) / rect.height - 0.5
+  const tiltX = -y * 12
+  const tiltY = x * 12
+
+  card.style.setProperty('--tilt-x', `${tiltX}deg`)
+  card.style.setProperty('--tilt-y', `${tiltY}deg`)
+  card.style.setProperty('--shine-x', `${50 - tiltY * (50 / 12)}%`)
+  card.style.setProperty('--shine-y', `${50 - tiltX * (50 / 12)}%`)
+  card.style.setProperty('--shine-angle', `${115 + (tiltX + tiltY) * 2}deg`)
+}
+
+function resetShinyEffect(event) {
+  event.currentTarget.style.removeProperty('--tilt-x')
+  event.currentTarget.style.removeProperty('--tilt-y')
+  event.currentTarget.style.removeProperty('--shine-x')
+  event.currentTarget.style.removeProperty('--shine-y')
+  event.currentTarget.style.removeProperty('--shine-angle')
+}
+
 function computeCardsPerPage(gridEl, aboutStackEl, projectsCardEl) {
   if (!gridEl || !aboutStackEl || !projectsCardEl) return 1
 
@@ -277,7 +302,12 @@ export default function Home() {
 
             <div className="ext-grid" id="ext-grid" ref={extGridRef} style={projects === null ? { display: 'none' } : undefined}>
               {visibleProjects.map(p => (
-                <div className="ext-card" key={p.image || p.name}>
+                <div
+                  className="ext-card"
+                  key={p.image || p.name}
+                  onPointerMove={shinyCardEffect}
+                  onPointerLeave={resetShinyEffect}
+                >
                   <img
                     src={p.image}
                     alt={p.name}
